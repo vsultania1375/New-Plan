@@ -1,0 +1,18 @@
+{
+  "name": "pan-india-operations-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PAN India Operations Dashboard MVP",
+  "scripts": {
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "db:init": "npm run db:init --prefix backend",
+    "ingest:sample": "npm run ingest:sample --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "playwright": "^1.60.0"
+  }
+}
