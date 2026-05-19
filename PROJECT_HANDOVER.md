@@ -954,3 +954,596 @@ Created complete stakeholder demo pack: demo script, demo summary, screenshot gu
 ## Next Recommended Step
 - **Presenter**: Review DEMO_SCRIPT.md, capture the 5 screenshots per demo-screenshots/README.md, and dry run once
 - **Follow-up**: After stakeholder demo, collect feedback on feature priorities for Phase 3
+
+---
+
+# Handover Entry — 2026-05-15 (PAN India map + percentage severity)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Fixed PAN India territory-map behavior so the map resets to full-India bounds, added a persistent side-panel summary for PAN India / state / POP scope, and changed Offline Severity coloring from raw-count scaling to percentage-based severity.
+
+## Files Changed
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/components/StateTerritoryMap.jsx`
+- `frontend/src/components/MapInfoPanel.jsx`
+- `frontend/src/components/MapLegend.jsx`
+- `frontend/src/components/OperationsSummaryPanel.jsx`
+- `frontend/src/components/territoryUtils.js`
+- `PROJECT_HANDOVER.md`
+
+## Behavior Changed
+- PAN India mode now fits the loaded India GeoJSON bounds instead of relying on a fixed center/zoom fallback.
+- Back to PAN India clears selected scope and re-fits the full country bounds.
+- The right-side map panel now always shows scope data, including PAN India totals when nothing is selected or hovered.
+- Floating map cards still appear only for hovered/selected territories and remain anchored to geography, not cursor movement.
+- Offline Severity state coloring now uses `offline_gt_3_days / total_sites * 100` with neutral grey when the denominator is unavailable.
+- State/PAN India summaries show offline counts with denominator + percentage; ticket status rows show percentages when a ticket total exists.
+
+## Percentage Logic
+- Normal: `0–2%`
+- Warning: `>2–5%`
+- High: `>5–10%`
+- Critical: `>10%`
+- Utility helpers added for percentage calculation, formatted count+percentage display, and severity color/label mapping.
+
+## Validation / Tests Run
+- `npm run build --prefix frontend` from repo root — failed due existing Vite path emission issue with the space-containing absolute project path.
+- `npm run build` from `frontend/` — passed.
+- `Get-ChildItem -Recurse -Filter *.js backend/src | ForEach-Object { node --check $_.FullName }` — passed.
+- `GET http://localhost:4000/api/health` — 200.
+- `GET http://localhost:4000/api/analytics/map/states` — 200; verified state rows still include all required map fields.
+- Attempted headless browser validation, but Playwright browser binaries are not installed locally; no package/browser install was run because approval was not requested for installs.
+
+## Remaining Issues / Notes
+- Browser-level visual verification is still pending locally because Playwright Chromium is unavailable in this environment.
+- POP detail data does not expose an exact `offline_gt_3_days` field, so the POP panel keeps that row as unavailable rather than relabeling the existing `offline_more_than_5_days` metric.
+- No backend/schema/formula changes were made.
+
+## Next Recommended Step
+Run a quick live browser pass on PAN India → state → POP → Back to PAN India to visually confirm full-country framing and side-panel behavior across the interaction loop.
+
+---
+
+# Handover Entry — 2026-05-15 (PAN India percentage map live browser verification)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Completed live browser verification for the percentage-based PAN India territory map flow using the locally running dashboard in headless Chrome.
+
+## Browser Verification Results
+- Dashboard loaded successfully at `http://localhost:5173`.
+- Live status pill was visible.
+- PAN India opened with the full India map visible and no state selected by default.
+- Side panel showed PAN India totals, offline counts with percentages, ticket status counts with percentages, active engineers, POP count, and Avg TAT.
+- Offline Severity legend showed the percentage thresholds: Normal `0–2%`, Warning `>2–5%`, High `>5–10%`, Critical `>10%`.
+- State hover changed the side panel from PAN India to the hovered state and preserved count + percentage formatting.
+- State selection updated the breadcrumb and side panel correctly.
+- POP row selection updated the side panel correctly, with unavailable POP fields rendered as `—`.
+- Back to PAN India cleared state/POP scope and restored the PAN India side panel.
+- Lower-page tables remained present after the map interaction flow.
+
+## Tiny Fixes Made
+- Capitalized selected POP risk badges (`Warning` instead of `warning`).
+- Ensured POP Avg TAT keeps the `days` suffix even when the API value arrives as a string.
+
+## Files Changed
+- `frontend/src/components/MapInfoPanel.jsx`
+- `PROJECT_HANDOVER.md`
+
+## Validation / Tests Run
+- Live browser verification in headless installed Chrome using Playwright API with local Chrome executable.
+- Screenshot captured locally: `pan-india-verification.png`.
+- `npm run build` from `frontend/` — passed.
+
+## Remaining Issues / Notes
+- Headless browser console recorded repeated `ERR_NETWORK_ACCESS_DENIED` tile-load errors for OpenStreetMap requests because this environment blocks external network access; these were map-tile network denials, not application runtime errors.
+- POP marker count was not asserted by DOM element type because Leaflet renders vector markers as SVG paths in this map; POP row selection flow was verified successfully.
+
+## Next Recommended Step
+Open the same screen once in a normal local browser with internet access to visually confirm live tile rendering, then treat the territory-map interaction loop as release-ready.
+
+---
+
+# Handover Entry — 2026-05-15 (VProtect-inspired theme refinement)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Re-themed the dashboard toward a more restrained, corporate VProtect-aligned look without changing dashboard behavior or business logic.
+
+## Files Changed
+- `frontend/src/styles.css`
+- `frontend/src/components/territoryUtils.js`
+- `PROJECT_HANDOVER.md`
+
+## Theme Direction Applied
+- Shifted the UI toward deep navy structure, white surfaces, softer blue accents, muted borders, and lower-saturation severity colors.
+- Kept the enterprise-monitoring feel while reducing the previous bright orange/red visual intensity.
+
+## Main UI Sections Restyled
+- Header and hero panels now use refined navy gradients.
+- Filters gained softer focus treatment and more polished controls.
+- KPI cards moved from loud solid fills to white cards with slim colored accent rails and restrained icon tints.
+- Territory map background, side panel, legends, and notes were softened.
+- Operations Summary cards, flow cards, risk rows, chips, POP rows, and lower reporting panels were rounded and muted for a more premium rhythm.
+- Table hover treatment was softened for a cleaner report feel.
+
+## Severity / Palette Notes
+- Critical: muted brick red
+- Warning / high risk: ochre / deep amber
+- Healthy: restrained green
+- Offline Severity map fills were updated to matching muted tones while preserving the existing percentage thresholds.
+
+## Validation / Tests Run
+- `npm run build` from `frontend/` — passed.
+- `Get-ChildItem -Recurse -Filter *.js backend/src | ForEach-Object { node --check $_.FullName }` — passed.
+- `GET /api/health` — 200.
+- `GET /api/analytics/overview` — 200.
+- Live browser smoke test in local Chrome confirmed KPI cards, map section, Operations Summary panel, and Live status still render.
+- Screenshots captured locally: `theme-verification.png`, `theme-verification-2.png`.
+
+## Important Fix During Theme Pass
+- Narrowed an old generic `.critical/.warning/.normal` selector that was still flooding entire cards with saturated backgrounds; status fills now stay scoped to dots, allowing the KPI cards to remain white and professional.
+
+## Remaining Issues / Notes
+- Current local dataset is empty after the earlier approved reset, so the visual verification screenshot reflects the no-data state rather than populated production-like values.
+- Headless browser still logs blocked external map tile requests in this restricted environment; that is environmental, not a theme regression.
+
+## Next Recommended Step
+Once fresh files are uploaded again, capture one populated dashboard screenshot and do a final visual tune pass against the real data-dense state before stakeholder presentation.
+
+---
+
+# Handover Entry — 2026-05-15 (Service Dashboard header polish)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Renamed the visible product shell to `Service Dashboard`, updated the supporting eyebrow text to `Service Intelligence`, and lightened the top header treatment for a cleaner corporate presentation.
+
+## Files Changed
+- `frontend/src/components/DashboardLayout.jsx`
+- `frontend/src/App.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Text / Branding Updated
+- `PAN India Operations Command Center` → `Service Dashboard`
+- `Ground operations intelligence` → `Service intelligence`
+- Hero heading `Ground Operations Command` → `Service Operations Overview`
+- Scope/filter wording such as `PAN India` was intentionally preserved.
+
+## Header Theme Updated
+- Replaced the heavy dark header with a white header, subtle border, and navy text.
+- Tightened header vertical spacing.
+- Restyled the existing admin button variant so it remains visible and refined against the lighter header.
+
+## Validation / Tests Run
+- `npm run build` from `frontend/` — passed.
+- Live browser smoke test in Chrome confirmed:
+  - header label is `SERVICE INTELLIGENCE`
+  - title is `Service Dashboard`
+  - hero heading is `Service Operations Overview`
+  - Live pill visible
+  - Admin Upload visible
+  - filters visible
+  - map renders
+- Screenshot captured locally: `service-dashboard-header.png`.
+
+## Remaining Issues / Notes
+- Browser console still shows blocked external map-tile requests in this restricted environment; this is environmental and unrelated to the header change.
+- No logic, API, schema, upload, or map behavior changes were made.
+
+## Next Recommended Step
+If this title direction is approved, update any external demo script or stakeholder materials that still refer to the old product name so the experience is consistent end to end.
+
+---
+
+# Handover Entry — 2026-05-15 (navbar logo integration)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Added the provided Protect logo to the top navigation/header and aligned it with the existing Service Dashboard branding block.
+
+## Files Changed
+- `frontend/public/image.png`
+- `frontend/src/components/DashboardLayout.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## UI Behavior Changed
+- Header now shows the provided logo to the left of the `Service Intelligence` / `Service Dashboard` text.
+- Logo is responsive and stacks cleanly above the text on narrow screens.
+
+## Validation / Tests Run
+- `npm run build` from `frontend/` — passed.
+- Browser smoke test confirmed:
+  - logo renders from `/image.png`
+  - logo is visible in header
+  - `Service Dashboard` title remains visible
+- Screenshot captured locally: `logo-header-verification.png`.
+
+## Remaining Issues / Notes
+- No application logic changed.
+- Current logo file is a raster PNG; if you later get the official SVG, swapping to SVG would sharpen rendering further on high-DPI displays.
+
+## Next Recommended Step
+Use the same official logo in demo materials and exported screenshots so the product presentation stays visually consistent.
+
+---
+
+# Handover Entry — 2026-05-15 (report tabs + hero removal)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Removed the large dark hero banner beneath the filters and replaced it with a clean report-navigation rail.
+
+## Files Changed
+- `frontend/src/App.jsx`
+- `frontend/src/components/ReportTabs.jsx`
+- `frontend/src/components/ReportPlaceholder.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## UI Behavior Changed
+- Removed the blue hero/banner section entirely.
+- Added report tabs:
+  - `Full Report`
+  - `State Wise`
+  - `Engineer Wise`
+  - `Customer Wise`
+- `Full Report` is selected by default and preserves the working dashboard content.
+- Added clean placeholder pages for State Wise, Engineer Wise, and Customer Wise reports.
+
+## Validation / Tests Run
+- `npm run build` from `frontend/` — passed.
+- Browser smoke test confirmed:
+  - hero banner count = 0
+  - all four report tabs render
+  - `Full Report` is active by default
+  - KPI cards render in Full Report
+  - each placeholder tab switches correctly
+  - returning to Full Report restores dashboard content
+- Screenshot captured locally: `report-tabs-verification.png`.
+
+## Remaining Issues / Notes
+- Placeholder tabs are intentionally blank shells for future implementation.
+- Headless browser still reports blocked external tile requests in this restricted environment; unrelated to the tab work.
+
+## Next Recommended Step
+Define the first real scoped report view—most likely `State Wise`—so the new navigation immediately starts earning its place.
+
+---
+
+# Handover Entry — 2026-05-15 (report tab icon polish + sticky nav)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Added professional line icons to the report navigation tabs and made the report tab rail sticky at the top while scrolling.
+
+## Files Changed
+- `frontend/src/components/ReportTabs.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Icons Added
+- Full Report: `BarChart3`
+- State Wise: `MapPinned`
+- Engineer Wise: `Users`
+- Customer Wise: `Building2`
+
+## Styling / Behavior Changed
+- Tabs now align icon + label horizontally with restrained SaaS styling.
+- Report tab bar now uses `position: sticky` and stays at the top of the viewport during page scroll.
+- Mobile behavior keeps the tab rail horizontally scrollable.
+
+## Validation / Tests Run
+- `npm run build` from `frontend/` — passed.
+- Browser smoke test confirmed:
+  - 4 tab icons render
+  - tab labels remain correct
+  - sticky bar top position moves from normal flow to `0px` after scrolling
+  - tab switching still works
+  - placeholder page behavior remains intact
+- Screenshot captured locally: `report-tabs-icons-sticky.png`.
+
+## Remaining Issues / Notes
+- Headless browser still logs blocked external map-tile requests in this restricted environment; unrelated to the tab navigation.
+
+## Next Recommended Step
+Now that the report navigation feels finished, the highest-value next move is to build out the first real secondary report tab instead of leaving all three placeholders empty.
+
+---
+
+# Handover Entry — 2026-05-15 (date filter removal)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Removed the unfinished date filters from the current frontend UI and simplified the live filter row to State + Segment only.
+
+## Files Changed
+- `frontend/src/components/FilterBar.jsx`
+- `frontend/src/App.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## UI / Logic Changed
+- Removed `FROM` and `TO` date inputs from the filter row.
+- Removed unused `fromDate` and `toDate` frontend state fields.
+- Left backend date-support capability untouched for future redesign.
+- Preserved working `State` and `Segment` filters.
+- Rebalanced the filter row to a clean two-column layout.
+
+## Validation / Tests Run
+- `npm run build` from `frontend/` — passed.
+- Browser smoke test confirmed:
+  - date input count = 0
+  - visible filter labels are only `STATE` and `SEGMENT`
+  - two select controls remain
+  - KPI cards, territory map, and Operations Summary still render
+- Screenshot captured locally: `date-filters-removed.png`.
+
+## Remaining Issues / Notes
+- Backend date-support code remains intentionally untouched so proper date filtering can be redesigned later.
+- Headless browser continues to log blocked external tile requests in this restricted environment; unrelated to filter removal.
+
+## Next Recommended Step
+When date logic is ready to return, define the exact source-of-truth date semantics first, then reintroduce filters with API-backed behavior rather than placeholder controls.
+
+---
+
+# Handover Entry — 2026-05-15 (map side panel deduplication)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Removed the duplicate outside state/POP metric block from the territory map side panel so the in-map floating card is the single primary detail surface during state and POP interaction.
+
+## Files Changed
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `PROJECT_HANDOVER.md`
+
+## Behavior Changed
+- Kept selected state and selected POP metrics inside the floating card rendered over the map.
+- Repurposed the outside right panel for supporting content only:
+  - active layer legend
+  - POP centroid note
+  - POP ranking/list for the selected state
+- POP ranking now appears higher because the duplicate metric panel no longer occupies the top of the side column.
+
+## Validation
+- `npm run build --prefix frontend` passed.
+- Browser smoke test confirmed:
+  - no outside `.map-info-panel` renders in the side panel
+  - map polygon click still shows selected state details in the floating card
+  - POP row click still shows selected POP details in the floating card
+  - POP ranking remains visible and selected POP row highlights
+  - Operations Summary Panel still renders
+  - Back to PAN India clears the POP ranking panel as expected
+  - no application console errors observed during the smoke test
+
+## Remaining Issues / Notes
+- No backend, formula, schema, or map interaction logic was changed.
+- External map tile requests may still depend on local network availability, but this task introduced no new map/runtime errors.
+
+## Next Recommended Step
+- If desired, do one visual pass on side-panel spacing after selecting a dense state to decide whether the POP ranking list should receive a slightly taller max height.
+
+---
+
+# Handover Entry — 2026-05-15 (top KPI tile refinement)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Updated the six executive KPI tiles to show richer management context for total sites, offline segment load, lag percentages, TAT units, and field-force coverage.
+
+## Files Changed
+- `backend/src/services/analyticsService.js`
+- `frontend/src/App.jsx`
+- `frontend/src/components/KpiCard.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Backend Fields Added / Used
+- Added read-only overview fields:
+  - `total_sites`
+  - `total_psu_sites`
+  - `total_pvt_sites`
+  - `pvt_offline_sites`
+  - `total_pops`
+  - `blank_pops`
+  - `avg_tat`
+  - `avg_tat_unit`
+  - `offline_without_ticket_percentage`
+  - `ticket_without_visit_percentage`
+  - `psu_offline_percentage`
+  - `pvt_offline_percentage`
+- Preserved existing overview fields for backward compatibility.
+
+## Formulas / Logic
+- `offline_without_ticket_percentage = offline_without_active_engineer_ticket / total_offline_sites * 100`
+- `ticket_without_visit_percentage = active_ticket_without_visit / active_engineer_tickets * 100`
+- `avg_tat_unit = days` because the existing KPI is derived from ticket `aging_days`.
+- `blank_pops` counts distinct service areas that currently have no site rows with both latitude and longitude populated.
+
+## PSU / PVT Limitation
+- `customer_site_master` does not contain a reliable PSU/PVT segment field, so total PSU/PVT site counts remain `—` and segment offline percentages remain unavailable.
+- Offline PSU/PVT counts are still shown from the latest offline file because `offline_data_master.segment` exists there.
+
+## Validation
+- `npm run build --prefix frontend` passed.
+- Backend syntax check passed.
+- `/api/analytics/overview` returned the new fields successfully.
+- Browser smoke test confirmed the six KPI tiles render with the new labels, secondary rows, percentages, TAT unit, POP count, and no application console errors.
+
+## Remaining Issues / Notes
+- Reliable PSU/PVT denominator percentages require a trusted segment attribute in site master data or an approved mapping source; they are intentionally not inferred.
+
+## Next Recommended Step
+- Decide whether PSU/PVT segmentation should become a governed master-data attribute so management can compare offline percentages by segment fairly.
+
+---
+
+# Handover Entry — 2026-05-15 (KPI clarification notes)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Added subtle frontend clarification notes to the Total Sites and Offline Load KPI tiles so unavailable PSU/PVT segment values are self-explanatory to management users.
+
+## Files Changed
+- `frontend/src/components/KpiCard.jsx`
+- `frontend/src/App.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## UI Behavior Changed
+- Total Sites now shows: `PSU/PVT split requires approved site-level segment mapping.` when segment totals are unavailable.
+- Offline Load now shows: `Offline percentage requires total site count by segment.` when segment percentages cannot be calculated.
+- Notes are styled as small muted helper text to preserve the existing dashboard hierarchy.
+
+## Validation
+- `npm run build --prefix frontend` passed.
+- Browser smoke test confirmed both helper notes render on the relevant KPI tiles and no application console errors were observed.
+
+## Remaining Issues / Notes
+- No backend logic, formulas, or schema were changed.
+- The helper notes explain the current limitation; they do not replace the need for an approved segment source of truth.
+
+## Next Recommended Step
+- Once a governed site-level segment mapping exists, wire it into the overview API and replace the helper notes with real PSU/PVT counts and percentages.
+
+---
+
+# Handover Entry — 2026-05-15 (browser tab branding)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Updated browser-tab branding only: changed the page title and replaced the favicon with the provided JPEG logo asset.
+
+## Files Changed
+- `frontend/index.html`
+- `frontend/public/logo.jpeg`
+- `PROJECT_HANDOVER.md`
+
+## Branding Updated
+- Browser tab title changed to `Vprotect Service`.
+- Browser tab favicon now points to `/logo.jpeg`.
+- Dashboard heading text was intentionally left unchanged.
+
+## Validation
+- `npm run build --prefix frontend` passed.
+- Browser smoke test confirmed:
+  - page title is `Vprotect Service`
+  - favicon link resolves to `/logo.jpeg`
+  - dashboard still loads
+  - no application console errors observed
+
+## Remaining Issues / Notes
+- Browsers may continue showing the previous favicon until cache is refreshed; a hard refresh may be needed locally.
+
+## Next Recommended Step
+- If desired, add a small square-optimized favicon asset later for sharper rendering at very small tab sizes.
+
+---
+
+# Handover Entry — 2026-05-15 (layer button style polish)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Restyled the territory-map layer controls into light enterprise pill buttons while preserving all existing layer and POP-toggle behavior.
+
+## Files Changed
+- `frontend/src/components/LayerToggle.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## UI Changes
+- Added line icons for Coverage, Offline Severity, Ticket Load, Engineer Productivity, and POP markers.
+- Reworked inactive buttons to white pills with subtle borders and muted text.
+- Reworked active buttons to a light-blue filled state with blue border/text and a restrained shadow.
+- Kept the Layer label small and muted, with wrapping behavior preserved for narrower layouts.
+
+## Validation
+- `npm run build --prefix frontend` passed.
+- Browser smoke test confirmed:
+  - all five controls render with icons
+  - active layer state changes correctly
+  - POP markers toggle still changes state correctly
+  - no application console errors observed
+
+## Remaining Issues / Notes
+- The first build attempt from the `frontend` working directory hit a transient Vite path-emission error; rerunning the repo-standard command `npm run build --prefix frontend` from the repo root succeeded.
+- No backend, map logic, or business formulas were changed.
+
+## Next Recommended Step
+- If desired, apply the same light-pill visual language to any remaining secondary controls so the dashboard’s interaction vocabulary feels fully unified.
+
+---
+
+# Handover Entry — 2026-05-15 (global filter removal)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Removed the remaining top-level State and Segment filter row from the dashboard while preserving map drilldown behavior and downstream reporting controls.
+
+## Files Changed
+- `frontend/src/App.jsx`
+- `frontend/src/components/DashboardLayout.jsx`
+- `PROJECT_HANDOVER.md`
+
+## Behavior Changed
+- Removed the global State and Segment dropdown row from the shell layout.
+- Removed the now-unused top-level filter state and marker filtering branch from `App.jsx`.
+- Dashboard now renders directly as:
+  - header
+  - report tabs
+  - KPI cards
+  - territory map and the rest of the report
+- Map markers default to the full available marker set, equivalent to the prior `PAN India` top-filter view.
+
+## Backend Impact
+- No backend routes, formulas, or optional filter support were changed.
+- Existing backend behavior remains available for future use if top-level filters are redesigned later.
+
+## Validation
+- `npm run build --prefix frontend` passed.
+- Browser smoke test confirmed:
+  - no `.filter-bar` renders
+  - no top State/Segment dropdowns render
+  - report tabs remain visible
+  - Full Report and placeholder tabs still work
+  - KPI cards, territory map, Operations Summary, and Admin Upload remain visible
+  - no application console errors observed
+
+## Remaining Issues / Notes
+- The unused `FilterBar.jsx` component remains in the codebase for now; it is no longer rendered, but was not deleted to keep this pass minimal and non-destructive.
+- Map PAN India → State → POP drilldown code was intentionally left untouched.
+
+## Next Recommended Step
+- If you want the codebase tidied further, do a later cleanup pass that removes unused legacy UI components only after you decide whether the global filters are gone permanently.

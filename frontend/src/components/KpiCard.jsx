@@ -1,7 +1,12 @@
 import React from 'react';
 import { formatNumber } from './format.js';
 
-export function KpiCard({ label, value, note, icon: Icon, tone = 'neutral' }) {
+function displayValue(value, suffix = '') {
+  if (value === null || value === undefined || value === '') return '—';
+  return `${formatNumber(value)}${suffix}`;
+}
+
+export function KpiCard({ label, value, note, icon: Icon, tone = 'neutral', valueSuffix = '', rows = [], helperText = '' }) {
   return (
     <article className={`kpi-card ${tone}`}>
       <div className="kpi-topline">
@@ -9,7 +14,18 @@ export function KpiCard({ label, value, note, icon: Icon, tone = 'neutral' }) {
         <span>{note}</span>
       </div>
       <p>{label}</p>
-      <strong>{formatNumber(value)}</strong>
+      <strong>{displayValue(value, valueSuffix)}</strong>
+      {rows.length > 0 && (
+        <dl className="kpi-detail-list">
+          {rows.map(({ label: rowLabel, value: rowValue }) => (
+            <React.Fragment key={rowLabel}>
+              <dt>{rowLabel}</dt>
+              <dd>{rowValue ?? '—'}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+      )}
+      {helperText && <small className="kpi-helper-text">{helperText}</small>}
     </article>
   );
 }

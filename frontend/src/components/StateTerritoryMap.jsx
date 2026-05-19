@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import L from 'leaflet';
 import { CircleMarker, GeoJSON, MapContainer, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { getFeatureStateName, getMetricValue, getTerritoryFill, normalizeStateName } from './territoryUtils.js';
 import { PopTooltip } from './PopTooltip.jsx';
 import { markerColor } from './format.js';
 
-function FitToIndia({ selectedBounds }) {
+function FitToIndia({ selectedBounds, indiaBounds }) {
   const map = useMap();
 
   useEffect(() => {
@@ -13,8 +14,10 @@ function FitToIndia({ selectedBounds }) {
       map.fitBounds(selectedBounds, { padding: [24, 24], maxZoom: 7 });
       return;
     }
-    map.setView([22.9, 79.8], 5);
-  }, [map, selectedBounds]);
+    if (indiaBounds?.isValid()) {
+      map.fitBounds(indiaBounds, { padding: [22, 22], maxZoom: 5 });
+    }
+  }, [map, selectedBounds, indiaBounds]);
 
   return null;
 }
@@ -67,6 +70,7 @@ export function StateTerritoryMap({
 }) {
   const [geoJson, setGeoJson] = useState(null);
   const [selectedBounds, setSelectedBounds] = useState(null);
+  const [indiaBounds, setIndiaBounds] = useState(null);
   const layerRefs = useRef(new Map());
 
   useEffect(() => {
@@ -74,10 +78,16 @@ export function StateTerritoryMap({
     fetch('/geo/india-states.geojson')
       .then((response) => response.json())
       .then((data) => {
-        if (active) setGeoJson(data);
+        if (active) {
+          setGeoJson(data);
+          setIndiaBounds(L.geoJSON(data).getBounds());
+        }
       })
       .catch(() => {
-        if (active) setGeoJson({ type: 'FeatureCollection', features: [] });
+        if (active) {
+          setGeoJson({ type: 'FeatureCollection', features: [] });
+          setIndiaBounds(null);
+        }
       });
     return () => {
       active = false;
@@ -150,7 +160,7 @@ export function StateTerritoryMap({
 
   return (
     <MapContainer center={[22.9, 79.8]} zoom={5} minZoom={4} maxZoom={9} scrollWheelZoom className="india-map territory-map">
-      <FitToIndia selectedBounds={selectedBounds} />
+      <FitToIndia selectedBounds={selectedBounds} indiaBounds={indiaBounds} />
       <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       {geoJson && (
         <GeoJSON

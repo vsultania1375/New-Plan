@@ -103,8 +103,12 @@ export async function getOverview() {
       GROUP BY ticket_id
     )
     SELECT
+      (SELECT COUNT(DISTINCT oracle_site_no)::int FROM customer_site_master) AS total_sites,
+      NULL::int AS total_psu_sites,
+      NULL::int AS total_pvt_sites,
       (SELECT COUNT(*)::int FROM latest_offline) AS total_offline_sites,
       (SELECT COUNT(*)::int FROM latest_offline WHERE segment = 'PSU') AS psu_offline_sites,
+      (SELECT COUNT(*)::int FROM latest_offline WHERE segment = 'PVT') AS pvt_offline_sites,
       (SELECT COUNT(*)::int FROM latest_offline WHERE aging_days > 5) AS offline_more_than_5_days,
       (SELECT COUNT(*)::int FROM active_tickets) AS active_engineer_tickets,
       (SELECT ROUND(AVG(aging_days)::numeric, 1) FROM active_tickets) AS avg_ticket_aging,
@@ -125,11 +129,41 @@ export async function getOverview() {
         SELECT COUNT(*)::int
         FROM engineer_master
         WHERE active_status = 'YES' AND UPPER(designation) = 'ENGINEER'
-      ) AS active_engineers
+      ) AS active_engineers,
+      (
+        SELECT COUNT(DISTINCT NULLIF(TRIM(service_area_name), ''))::int
+        FROM customer_site_master
+      ) AS total_pops,
+      (
+        SELECT COUNT(*)::int
+        FROM (
+          SELECT NULLIF(TRIM(service_area_name), '') AS service_area_name
+          FROM customer_site_master
+          WHERE NULLIF(TRIM(service_area_name), '') IS NOT NULL
+          GROUP BY NULLIF(TRIM(service_area_name), '')
+          HAVING COUNT(*) FILTER (WHERE latitude IS NOT NULL AND longitude IS NOT NULL) = 0
+        ) missing_pop_coordinates
+      ) AS blank_pops
     `,
     [activeStatuses]
   );
-  return rows[0];
+  const overview = rows[0];
+  const offlineTotal = Number(overview.total_offline_sites || 0);
+  const activeTicketTotal = Number(overview.active_engineer_tickets || 0);
+
+  return {
+    ...overview,
+    avg_tat: overview.avg_ticket_aging,
+    avg_tat_unit: 'days',
+    offline_without_ticket_percentage: offlineTotal
+      ? Math.round((Number(overview.offline_without_active_engineer_ticket || 0) / offlineTotal) * 1000) / 10
+      : null,
+    ticket_without_visit_percentage: activeTicketTotal
+      ? Math.round((Number(overview.active_ticket_without_visit || 0) / activeTicketTotal) * 1000) / 10
+      : null,
+    psu_offline_percentage: null,
+    pvt_offline_percentage: null
+  };
 }
 
 export async function getStateRisk() {

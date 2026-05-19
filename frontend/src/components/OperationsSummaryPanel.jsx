@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, Clock, Ticket, Users } from 'lucide-react';
 import { formatNumber } from './format.js';
+import { calculatePercentage } from './territoryUtils.js';
 
 const RISK_COLORS = {
   critical: '#dc2626',
@@ -84,6 +85,12 @@ export function OperationsSummaryPanel({
   onSelectState = null,
   onSelectPop = null
 }) {
+  const formatSitesWithPercent = (count, total) => {
+    if (count === null || count === undefined) return '—';
+    const percent = calculatePercentage(count, total);
+    return percent === null ? `${formatNumber(count)} sites` : `${formatNumber(count)} sites (${percent}%)`;
+  };
+
   const scopeTitle = useMemo(() => {
     if (scopeType === 'POP' && selectedPop) {
       return `POP Operations Summary`;
@@ -206,7 +213,7 @@ export function OperationsSummaryPanel({
         {
           title: 'Offline Health',
           value: selectedState.total_offline,
-          subtitle: `>3 Days: ${selectedState.offline_gt_3_days || 0}`,
+          subtitle: `>3 Days: ${formatSitesWithPercent(selectedState.offline_gt_3_days, selectedState.total_sites)}`,
           tone: selectedState.total_offline > 100 ? 'critical' : selectedState.total_offline > 50 ? 'warning' : 'normal',
           icon: Activity
         },
@@ -242,13 +249,13 @@ export function OperationsSummaryPanel({
     }
     // PAN India
     return [
-      {
-        title: 'Offline Health',
-        value: scopeData.total_offline_sites,
-        subtitle: `>3 Days: ${scopeData.offline_more_than_5_days || 0}`,
-        tone: scopeData.total_offline_sites > 200 ? 'critical' : scopeData.total_offline_sites > 100 ? 'warning' : 'normal',
-        icon: Activity
-      },
+        {
+          title: 'Offline Health',
+          value: scopeData.total_offline,
+          subtitle: `>3 Days: ${formatSitesWithPercent(scopeData.offline_gt_3_days, scopeData.total_sites)}`,
+          tone: scopeData.total_offline_sites > 200 ? 'critical' : scopeData.total_offline_sites > 100 ? 'warning' : 'normal',
+          icon: Activity
+        },
       {
         title: 'Ticket Creation Gap',
         value: scopeData.offline_without_active_engineer_ticket,

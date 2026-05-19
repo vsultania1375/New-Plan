@@ -11,6 +11,8 @@ import { EngineerProductivityCards } from './components/EngineerProductivityCard
 import { formatNumber } from './components/format.js';
 import { GroundLagFunnel } from './components/GroundLagFunnel.jsx';
 import { KpiCard } from './components/KpiCard.jsx';
+import { ReportPlaceholder } from './components/ReportPlaceholder.jsx';
+import { ReportTabs } from './components/ReportTabs.jsx';
 import { RiskPopsPanel, RiskStatesPanel } from './components/RiskPanels.jsx';
 import { TerritoryMapCard } from './components/TerritoryMapCard.jsx';
 
@@ -162,13 +164,8 @@ export function App() {
   const [apiStatus, setApiStatus] = useState('loading');
   const [apiFailures, setApiFailures] = useState([]);
   const [selectedPop, setSelectedPop] = useState(null);
+  const [activeReport, setActiveReport] = useState('full');
   const [adminKey, setAdminKey] = useState(() => sessionStorage.getItem('adminUploadKey') || '');
-  const [filters, setFilters] = useState({
-    fromDate: '',
-    toDate: '',
-    state: 'PAN India',
-    segment: 'PSU'
-  });
 
   async function loadDashboard() {
     setLoading(true);
@@ -210,10 +207,7 @@ export function App() {
   const stateOptions = useMemo(() => data.stateRisk.map((row) => row.state).filter(Boolean), [data.stateRisk]);
   const isAdmin = Boolean(adminKey);
 
-  const visibleMarkers = useMemo(() => {
-    if (filters.state === 'PAN India') return data.markers;
-    return data.markers.filter((marker) => marker.state === filters.state);
-  }, [data.markers, filters.state]);
+  const visibleMarkers = data.markers;
 
   useEffect(() => {
     if (!visibleMarkers.length) {
@@ -227,48 +221,89 @@ export function App() {
   }, [visibleMarkers, selectedPop?.service_area_name]);
 
   const activeOverview = data.overview;
+  const formatMetric = (value) => value === null || value === undefined || value === '' ? '—' : formatNumber(value);
+  const formatMetricWithPercent = (value, percent) => {
+    if (value === null || value === undefined || value === '') return '—';
+    return `${formatMetric(value)} (${percent === null || percent === undefined ? '—' : `${percent}%`})`;
+  };
   const kpis = [
     {
-      label: 'Total Offline Sites',
-      value: activeOverview.total_offline_sites,
-      note: 'Current offline load',
+      label: 'Total Sites',
+      value: activeOverview.total_sites,
+      note: 'Mapped estate',
       icon: Activity,
-      tone: 'neutral'
+      tone: 'neutral',
+      helperText: activeOverview.total_psu_sites == null || activeOverview.total_pvt_sites == null
+        ? 'PSU/PVT split requires approved site-level segment mapping.'
+        : '',
+      rows: [
+        { label: 'PSU', value: formatMetric(activeOverview.total_psu_sites) },
+        { label: 'PVT', value: formatMetric(activeOverview.total_pvt_sites) }
+      ]
     },
     {
-      label: 'Offline > 5 Days',
-      value: activeOverview.offline_more_than_5_days,
-      note: 'Aging risk',
+      label: 'Offline Load',
+      value: activeOverview.total_offline_sites,
+      note: 'Current offline load',
       icon: AlertTriangle,
-      tone: 'warning'
+      tone: 'warning',
+      helperText: activeOverview.psu_offline_percentage == null || activeOverview.pvt_offline_percentage == null
+        ? 'Offline percentage requires total site count by segment.'
+        : '',
+      rows: [
+        { label: 'PSU', value: formatMetricWithPercent(activeOverview.psu_offline_sites, activeOverview.psu_offline_percentage) },
+        { label: 'PVT', value: formatMetricWithPercent(activeOverview.pvt_offline_sites, activeOverview.pvt_offline_percentage) }
+      ]
     },
     {
       label: 'Offline but No Ticket',
       value: activeOverview.offline_without_active_engineer_ticket,
       note: 'Ticket creation lag',
       icon: Ticket,
-      tone: 'critical'
+      tone: 'critical',
+      rows: [
+        {
+          label: 'Share',
+          value: activeOverview.offline_without_ticket_percentage === null || activeOverview.offline_without_ticket_percentage === undefined
+            ? '—'
+            : `${activeOverview.offline_without_ticket_percentage}% of offline sites`
+        }
+      ]
     },
     {
       label: 'Ticket but No Visit',
       value: activeOverview.active_ticket_without_visit,
       note: 'Engineer action lag',
       icon: Wrench,
-      tone: 'critical'
+      tone: 'critical',
+      rows: [
+        {
+          label: 'Share',
+          value: activeOverview.ticket_without_visit_percentage === null || activeOverview.ticket_without_visit_percentage === undefined
+            ? '—'
+            : `${activeOverview.ticket_without_visit_percentage}% of active tickets`
+        }
+      ]
     },
     {
       label: 'Avg TAT',
-      value: activeOverview.avg_ticket_aging,
-      note: 'Ticket aging days',
+      value: activeOverview.avg_tat ?? activeOverview.avg_ticket_aging,
+      valueSuffix: activeOverview.avg_tat_unit ? ` ${activeOverview.avg_tat_unit}` : '',
+      note: 'Ticket aging',
       icon: Clock,
       tone: 'warning'
     },
     {
-      label: 'Active Engineers',
+      label: 'Field Force',
       value: activeOverview.active_engineers,
-      note: 'Available field force',
+      note: 'Coverage capacity',
       icon: Users,
-      tone: 'good'
+      tone: 'good',
+      rows: [
+        { label: 'POPs', value: formatMetric(activeOverview.total_pops) },
+        { label: 'Engineers', value: formatMetric(activeOverview.active_engineers) },
+        { label: 'Blank POPs', value: formatMetric(activeOverview.blank_pops) }
+      ]
     }
   ];
 
@@ -286,43 +321,39 @@ export function App() {
 
   return (
     <DashboardLayout
-      filters={filters}
-      stateOptions={stateOptions}
-      onFilterChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
       statusSlot={<DashboardStatus status={apiStatus} />}
       adminSlot={<AdminAccess isAdmin={isAdmin} onLogin={handleAdminLogin} onLogout={handleAdminLogout} />}
     >
       <DashboardStatusCard status={apiStatus} failures={apiFailures} />
       {isAdmin && <AdminUploadPanel adminKey={adminKey} onDone={loadDashboard} />}
 
-      <section className="hero-panel">
-        <div>
-          <p>PAN INDIA</p>
-          <h2>Ground Operations Command</h2>
-          <span>{filters.state} | {filters.segment} | {formatNumber(data.stateMap.length)} state territories | {formatNumber(visibleMarkers.length)} POP markers</span>
-        </div>
-        <div className="hero-chips">
-          {data.stateRisk.slice(0, 5).map((state) => <b key={state.state}>{state.state}</b>)}
-        </div>
-      </section>
+      <ReportTabs activeReport={activeReport} onChange={setActiveReport} />
 
-      <section className="kpi-grid">
-        {kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
-      </section>
+      {activeReport === 'full' && (
+        <>
+          <section className="kpi-grid">
+            {kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
+          </section>
 
-      <TerritoryMapCard states={data.stateMap} popMarkers={visibleMarkers} stateRisk={data.stateRisk} overview={activeOverview} onSelectPop={setSelectedPop} />
+          <TerritoryMapCard states={data.stateMap} popMarkers={visibleMarkers} stateRisk={data.stateRisk} overview={activeOverview} onSelectPop={setSelectedPop} />
 
-      <GroundLagFunnel overview={activeOverview} />
+          <GroundLagFunnel overview={activeOverview} />
 
-      <section className="visual-two-col">
-        <RiskStatesPanel rows={data.stateRisk} />
-        <RiskPopsPanel rows={data.serviceAreaRisk} engineers={data.engineerLoad} />
-      </section>
+          <section className="visual-two-col">
+            <RiskStatesPanel rows={data.stateRisk} />
+            <RiskPopsPanel rows={data.serviceAreaRisk} engineers={data.engineerLoad} />
+          </section>
 
-      <DistributionChart overview={activeOverview} stateOptions={stateOptions} />
-      <EngineerProductivityCards rows={data.engineerLoad} />
-      <ChartsSection breakdowns={data.breakdowns} />
-      <DetailTables data={data} />
+          <DistributionChart overview={activeOverview} stateOptions={stateOptions} />
+          <EngineerProductivityCards rows={data.engineerLoad} />
+          <ChartsSection breakdowns={data.breakdowns} />
+          <DetailTables data={data} />
+        </>
+      )}
+
+      {activeReport === 'state' && <ReportPlaceholder title="State Wise Report" description="This report will be configured later." />}
+      {activeReport === 'engineer' && <ReportPlaceholder title="Engineer Wise Report" description="This report will be configured later." />}
+      {activeReport === 'customer' && <ReportPlaceholder title="Customer Wise Report" description="This report will be configured later." />}
     </DashboardLayout>
   );
 }

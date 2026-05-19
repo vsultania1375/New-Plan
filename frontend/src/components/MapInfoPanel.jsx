@@ -1,54 +1,81 @@
 import React from 'react';
 import { formatNumber } from './format.js';
+import { calculatePercentage, formatCountWithPercentage, getOfflinePercentage, getOfflineSeverityLabelByPercentage } from './territoryUtils.js';
 
-function formatPanelValue(label, value) {
+function formatPanelValue(label, value, model) {
   if (value === null || value === undefined || value === '') return '—';
   return label === 'Avg TAT' ? `${formatNumber(value)} days` : formatNumber(value);
 }
 
-function getPanelModel({ hoveredState, selectedState, selectedPop }) {
+function formatTicketCount(count, model) {
+  if (count === null || count === undefined || count === '') return '—';
+  const totalTickets = ['open_tickets', 'pending_tickets', 'completed_tickets', 'closed_tickets']
+    .reduce((sum, key) => sum + Number(model[key] || 0), 0);
+  const percent = calculatePercentage(count, totalTickets);
+  return percent === null ? formatNumber(count) : `${formatNumber(count)} (${percent}%)`;
+}
+
+function getRows(model) {
+  const offlinePercent = getOfflinePercentage(model);
+  return [
+    ['Total Sites', model.total_sites],
+    ['Total Offline Sites', formatCountWithPercentage(model.total_offline, model.total_sites)],
+    ['Offline > 3 Days', formatCountWithPercentage(model.offline_gt_3_days, model.total_sites)],
+    ['Offline %', offlinePercent === null ? '—' : `${offlinePercent}%`],
+    ['Open Tickets', formatTicketCount(model.open_tickets, model)],
+    ['Pending Tickets', formatTicketCount(model.pending_tickets, model)],
+    ['Completed Tickets', formatTicketCount(model.completed_tickets, model)],
+    ['Closed Tickets', formatTicketCount(model.closed_tickets, model)],
+    ['Active Engineers', model.active_engineers],
+    ['Total POPs', model.total_pops],
+    ['Avg TAT', model.avg_tat]
+  ];
+}
+
+function getPanelModel({ hoveredState, selectedState, selectedPop, panIndiaSummary }) {
   if (selectedPop) {
     const status = selectedPop.ticket_status_counts || {};
+    const popModel = {
+      total_sites: selectedPop.total_mapped_sites,
+      total_offline: selectedPop.offline_sites,
+      offline_gt_3_days: null,
+      open_tickets: status.OPEN || 0,
+      pending_tickets: status.PENDING || 0,
+      completed_tickets: status.COMPLETED || 0,
+      closed_tickets: status.CLOSED || 0,
+      active_engineers: null,
+      total_pops: null,
+      avg_tat: selectedPop.avg_ticket_aging
+    };
     return {
       eyebrow: 'Selected POP',
       title: selectedPop.service_area_name,
       subtitle: selectedPop.state,
       riskLevel: selectedPop.riskLevel || 'normal',
-      rows: [
-        ['Total Sites', selectedPop.total_mapped_sites],
-        ['Total Offline Sites', selectedPop.offline_sites],
-        ['Offline > 3 Days', null],
-        ['Open Tickets', status.OPEN || 0],
-        ['Pending Tickets', status.PENDING || 0],
-        ['Completed Tickets', status.COMPLETED || 0],
-        ['Closed Tickets', status.CLOSED || 0],
-        ['Active Engineers', null],
-        ['Total POPs', null],
-        ['Avg TAT', selectedPop.avg_ticket_aging]
-      ]
+      riskLabel: selectedPop.riskLevel
+        ? `${selectedPop.riskLevel.charAt(0).toUpperCase()}${selectedPop.riskLevel.slice(1)}`
+        : 'Normal',
+      rows: getRows(popModel)
     };
   }
 
-  const state = selectedState || hoveredState;
+  const state = selectedState || hoveredState || panIndiaSummary;
   if (!state) return null;
+  const offlinePercent = getOfflinePercentage(state);
+  const severityLabel = getOfflineSeverityLabelByPercentage(offlinePercent);
+  const riskTone = severityLabel === 'Critical'
+    ? 'critical'
+    : severityLabel === 'High' || severityLabel === 'Warning'
+    ? 'warning'
+    : 'normal';
 
   return {
-    eyebrow: selectedState ? 'Selected State' : 'Hovered State',
+    eyebrow: selectedState ? 'Selected State' : hoveredState ? 'Hovered State' : 'Scope',
     title: state.state || 'Unmapped state',
     subtitle: null,
-    riskLevel: state.riskLevel || 'normal',
-    rows: [
-      ['Total Sites', state.total_sites],
-      ['Total Offline Sites', state.total_offline],
-      ['Offline > 3 Days', state.offline_gt_3_days],
-      ['Open Tickets', state.open_tickets],
-      ['Pending Tickets', state.pending_tickets],
-      ['Completed Tickets', state.completed_tickets],
-      ['Closed Tickets', state.closed_tickets],
-      ['Active Engineers', state.active_engineers],
-      ['Total POPs', state.total_pops],
-      ['Avg TAT', state.avg_tat]
-    ]
+    riskLevel: riskTone,
+    riskLabel: severityLabel,
+    rows: getRows(state)
   };
 }
 
@@ -72,13 +99,13 @@ export function MapInfoPanel(props) {
           <h3>{model.title}</h3>
           {model.subtitle && <span>{model.subtitle}</span>}
         </div>
-        <span className={`badge ${model.riskLevel}`}>{model.riskLevel}</span>
+        <span className={`badge ${model.riskLevel}`}>{model.riskLabel || model.riskLevel}</span>
       </div>
       <dl>
         {model.rows.map(([label, value]) => (
           <React.Fragment key={label}>
             <dt>{label}</dt>
-            <dd>{formatPanelValue(label, value)}</dd>
+            <dd>{label !== 'Avg TAT' && typeof value === 'string' ? value : formatPanelValue(label, value, model)}</dd>
           </React.Fragment>
         ))}
       </dl>

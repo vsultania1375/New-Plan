@@ -19,7 +19,21 @@ export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [],
   const [showPopMarkers, setShowPopMarkers] = useState(false);
   const [selectedPop, setSelectedPop] = useState(null);
 
-  const panIndiaSummary = useMemo(() => finalizeSummary(sumStateRows(states)), [states]);
+  const panIndiaSummary = useMemo(() => states.length
+    ? finalizeSummary(sumStateRows(states))
+    : {
+        state: 'PAN India',
+        total_sites: null,
+        total_offline: null,
+        offline_gt_3_days: null,
+        open_tickets: null,
+        pending_tickets: null,
+        completed_tickets: null,
+        closed_tickets: null,
+        active_engineers: null,
+        total_pops: null,
+        avg_tat: null
+      }, [states]);
   const maxMetric = useMemo(() => Math.max(0, ...states.map((state) => getMetricValue(state, activeLayer))), [activeLayer, states]);
 
   const visiblePops = useMemo(() => {
@@ -135,6 +149,7 @@ export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [],
                 hoveredState={hoveredState}
                 selectedState={selectedState}
                 selectedPop={selectedPop}
+                panIndiaSummary={panIndiaSummary}
               />
             )}
             infoAnchor={infoAnchor}
@@ -142,6 +157,11 @@ export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [],
         </div>
 
         <aside className="map-side-panel territory-side-panel">
+          <MapLegend activeLayer={activeLayer} maxValue={maxMetric} />
+          <div className="territory-note">
+            <MapPinned size={15} />
+            <span>POP Centroid Markers — Territory Boundaries Pending Real GeoJSON</span>
+          </div>
           {selectedState && (
             <PopRankingPanel
               pops={visiblePops}
@@ -149,11 +169,6 @@ export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [],
               onSelectPop={handleClickPop}
             />
           )}
-          <MapLegend activeLayer={activeLayer} maxValue={maxMetric} />
-          <div className="territory-note">
-            <MapPinned size={15} />
-            <span>POP Centroid Markers — Territory Boundaries Pending Real GeoJSON</span>
-          </div>
         </aside>
       </div>
 
@@ -161,6 +176,7 @@ export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [],
         scopeType={selectedPop ? 'POP' : selectedState ? 'STATE' : 'PAN_INDIA'}
         scopeData={{
           ...overview,
+          ...panIndiaSummary,
           states_count: states?.length || 0,
           data_date: '13-05-2026'
         }}
