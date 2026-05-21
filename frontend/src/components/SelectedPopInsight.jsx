@@ -6,7 +6,7 @@ export function SelectedPopInsight({ pop }) {
   if (!pop) {
     return (
       <section className="selected-pop empty">
-        <span>Hover or click a POP marker to see service-area details.</span>
+        <span>Hover or click a Service Area marker to see details.</span>
       </section>
     );
   }
@@ -20,7 +20,7 @@ export function SelectedPopInsight({ pop }) {
         <strong>{pop.state || '-'}</strong>
       </div>
       <div>
-        <span>POP</span>
+        <span>Service Area</span>
         <strong>{pop.service_area_name}</strong>
       </div>
       <div>
@@ -47,7 +47,7 @@ export function SelectedPopInsight({ pop }) {
         <span>Visits 30d</span>
         <strong>{formatNumber(pop.total_ticket_visits)}</strong>
       </div>
-      <button className="secondary-button">View POP Detail <ArrowRight size={15} /></button>
+      <button className="secondary-button">View Service Area Detail <ArrowRight size={15} /></button>
     </section>
   );
 }

@@ -32,6 +32,44 @@ The dashboard shows management-level operational lag using uploaded FSM/offline 
 └── README.md
 ```
 
+## Business Terminology: POP = Service Area
+
+POP and Service Area are the same operational unit in this dashboard. Use `service_area_name` as the POP / Service Area display name and `service_area_code` where available for mapping. Do not treat POP as a separate hierarchy unless business introduces a new mapping later.
+
+Data mapping rule:
+
+```text
+customer_site_master.service_area_name = POP / Service Area name
+service_area_master.service_area_name = POP / Service Area name
+service_area_master.service_area_code = POP / Service Area code
+```
+
+If `service_area_code` is unavailable in `customer_site_master`, match carefully by normalized `service_area_name`. Future official ownership mapping should use `ServiceAreaEngineerMapping.xlsx`, not `POPEngineerMapping.xlsx`.
+
+Suggested future ownership mapping file:
+
+```text
+ServiceAreaEngineerMapping.xlsx
+```
+
+Suggested columns:
+
+- `service_area_code`
+- `service_area_name`
+- `state`
+- `engineer_id`
+- `engineer_name`
+- `assignment_start_date`
+- `active_status`
+- `backup_engineer_id`
+- `backup_engineer_name`
+- `manager_employee_id`
+- `manager_name`
+- `effective_from`
+- `effective_to`
+
+This mapping will define the official active engineer owner for each Service Area.
+
 ## Backend Flow
 
 - `backend/src/server.js` starts Express on port `4000`.
@@ -50,7 +88,7 @@ The dashboard shows management-level operational lag using uploaded FSM/offline 
   - executive KPIs
   - PAN India map
   - lag funnel
-  - state/POP risk cards
+  - state / Service Area risk cards
   - analytics tables
   - export buttons
 - `frontend/src/styles.css` contains the enterprise dashboard styling.

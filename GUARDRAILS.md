@@ -1,6 +1,13 @@
 # Project Guardrails
 
-This project is the **PAN India Operations Intelligence Dashboard**. It ingests operational Excel/CSV exports and shows management where ground operations are lagging: offline sites, missing tickets, no visits, engineer load, and state/POP/service-area risk.
+This project is the **PAN India Operations Intelligence Dashboard**. It ingests operational Excel/CSV exports and shows management where ground operations are lagging: offline sites, missing tickets, no visits, engineer load, and state / Service Area risk (POP = Service Area).
+
+## Business Terminology
+
+- POP and Service Area are the same operational unit in this dashboard.
+- Use `service_area_name` as the POP / Service Area display name.
+- Use `service_area_code` where available for mapping.
+- Do not treat POP as a separate hierarchy unless business introduces a new mapping later.
 
 ## Non-Negotiable Data Rules
 

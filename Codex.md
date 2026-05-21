@@ -14,12 +14,18 @@ The system will allow management to upload operational files daily and automatic
 - Engineer activity and productivity
 - Site visits
 - Attendance discipline
-- State-wise / POP-wise / engineer-wise lag
+- State-wise / Service Area-wise / engineer-wise lag
 - Exportable performance reports
 
 The main purpose is:
 
 > A PAN India Head should open the dashboard and immediately understand where the lag is happening on the ground.
+
+---
+
+## Business Terminology: POP = Service Area
+
+POP and Service Area are the same operational unit in this dashboard. Use `service_area_name` as the POP / Service Area display name and `service_area_code` where available for mapping. Do not treat POP as a separate hierarchy unless business introduces a new mapping later. Future official ownership mapping should use `ServiceAreaEngineerMapping.xlsx`.
 
 ---
 
@@ -42,9 +48,9 @@ Currently these files are separate. The dashboard should connect them and answer
 3. Which tickets have no visits?
 4. Which engineers are overloaded?
 5. Which engineers are attending but not producing enough visits?
-6. Which POP/service area/state is causing operational lag?
+6. Which Service Area/state is causing operational lag?
 7. Which sites are repeatedly going offline?
-8. Which states or POPs need urgent action?
+8. Which states or Service Areas need urgent action?
 
 ---
 

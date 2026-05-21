@@ -4,11 +4,15 @@ import express from 'express';
 import multer from 'multer';
 import { env } from '../config/env.js';
 import {
+  analyzeServiceAreaPincodeMappingRows,
   ingestAttendance,
   ingestCustomerSites,
   ingestEngineers,
   ingestOffline,
+  ingestServiceAreaEngineerMapping,
+  ingestServiceAreaPincodeMapping,
   ingestServiceAreas,
+  ingestStateHeadMapping,
   ingestTicketActivity,
   ingestTickets
 } from '../services/ingestionService.js';
@@ -36,12 +40,18 @@ const TYPE_META = {
   engineers: { target_table: 'engineer_master', sheet_used: 'Sheet1' },
   serviceAreas: { target_table: 'service_area_master', sheet_used: 'Sheet1' },
   attendance: { target_table: 'attendance_data', sheet_used: 'Sheet1' },
-  ticketActivity: { target_table: 'visit_master', sheet_used: 'Sheet1' }
+  ticketActivity: { target_table: 'visit_master', sheet_used: 'Sheet1' },
+  stateHeadMapping: { target_table: 'state_head_mapping', sheet_used: 'Sheet1' },
+  serviceAreaEngineerMapping: { target_table: 'service_area_engineer_mapping', sheet_used: 'Sheet1' },
+  serviceAreaPincodeMapping: { target_table: 'service_area_pincode_mapping', sheet_used: 'Sheet1' }
 };
 
 const CANONICAL_TYPES = {
   serviceAreas: 'service_areas',
-  ticketActivity: 'ticket_activity'
+  ticketActivity: 'ticket_activity',
+  stateHeadMapping: 'state_head_mapping',
+  serviceAreaEngineerMapping: 'service_area_engineer_mapping',
+  serviceAreaPincodeMapping: 'service_area_pincode_mapping'
 };
 
 const REQUIRED_HEADERS = {
@@ -51,11 +61,18 @@ const REQUIRED_HEADERS = {
   engineers: ['Employee Code', 'Employee Name', 'Designation', 'Active Status'],
   serviceAreas: ['Service Area Code', 'Service Area Name'],
   attendance: ['Employee Code', 'Attendance Date', 'In Date Time'],
-  ticketActivity: ['Engineer Code', 'Ticket ID', 'Visit No', 'Visit Date', 'Visit In Time']
+  ticketActivity: ['Engineer Code', 'Ticket ID', 'Visit No', 'Visit Date', 'Visit In Time'],
+  stateHeadMapping: ['state', 'state_head_name', 'state_head_employee_id', 'active_status'],
+  serviceAreaEngineerMapping: ['service_area_name', 'state', 'engineer_id', 'engineer_name', 'active_status'],
+  serviceAreaPincodeMapping: ['service_area_name', 'state', 'pincode', 'active_status']
 };
 
+function normalizeHeaderKey(header) {
+  return String(header || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
 function normalizeHeaders(headers = []) {
-  return new Set(headers.map((header) => header.toLowerCase()));
+  return new Set(headers.map((header) => normalizeHeaderKey(header)));
 }
 
 function getWorkbookInfo(filePath) {
@@ -64,7 +81,26 @@ function getWorkbookInfo(filePath) {
 
 function sheetHasHeaders(sheet, requiredHeaders) {
   const headers = normalizeHeaders(sheet?.headers);
-  return requiredHeaders.every((header) => headers.has(header.toLowerCase()));
+  return requiredHeaders.every((header) => headers.has(normalizeHeaderKey(header)));
+}
+
+function sheetLooksLikeServiceAreaPincodeMapping(sheet) {
+  const headers = normalizeHeaders(sheet?.headers);
+  const hasServiceArea = headers.has('serviceareaname') || headers.has('servicearea');
+  const hasPincode = headers.has('pincode');
+  const hasStatus = headers.has('activestatus') || headers.has('status');
+  return hasServiceArea && headers.has('state') && hasPincode && hasStatus;
+}
+
+function missingServiceAreaPincodeHeaders(sheet) {
+  const headers = normalizeHeaders(sheet?.headers);
+  const checks = [
+    ['service_area_name', headers.has('serviceareaname') || headers.has('servicearea')],
+    ['state', headers.has('state')],
+    ['pincode', headers.has('pincode')],
+    ['active_status', headers.has('activestatus') || headers.has('status')]
+  ];
+  return checks.filter(([, present]) => !present).map(([header]) => header);
 }
 
 function hasHeaders(filePath, requiredHeaders) {
@@ -80,6 +116,9 @@ function detectImportType(filename, filePath) {
   const lower = filename.toLowerCase();
   const workbookInfo = getWorkbookInfo(filePath);
   const b2bSheet = workbookInfo.find((sheet) => sheet.sheetName === 'B2B');
+  if (workbookInfo.some((sheet) => sheetLooksLikeServiceAreaPincodeMapping(sheet))) return 'serviceAreaPincodeMapping';
+  if (workbookInfo.some((sheet) => sheetHasHeaders(sheet, REQUIRED_HEADERS.stateHeadMapping))) return 'stateHeadMapping';
+  if (workbookInfo.some((sheet) => sheetHasHeaders(sheet, REQUIRED_HEADERS.serviceAreaEngineerMapping))) return 'serviceAreaEngineerMapping';
   if (b2bSheet && sheetHasHeaders(b2bSheet, REQUIRED_HEADERS.offline)) return 'offline';
   if (workbookInfo.some((sheet) => sheetHasHeaders(sheet, REQUIRED_HEADERS.tickets))) return 'tickets';
   if (workbookInfo.some((sheet) => sheetHasHeaders(sheet, REQUIRED_HEADERS.sites))) return 'sites';
@@ -94,6 +133,9 @@ function detectImportType(filename, filePath) {
   if (lower.includes('serviceareamaster')) return 'serviceAreas';
   if (lower.includes('attendancereport')) return 'attendance';
   if (lower.includes('ticketactivity') || lower.includes('ticket activity')) return 'ticketActivity';
+  if (lower.includes('stateheadmapping') || lower.includes('state head mapping')) return 'stateHeadMapping';
+  if (lower.includes('serviceareaengineermapping') || lower.includes('service area engineer mapping')) return 'serviceAreaEngineerMapping';
+  if (lower.includes('serviceareapincodemapping') || lower.includes('service area pincode mapping')) return 'serviceAreaPincodeMapping';
   if (lower.includes('visit') && hasHeaders(filePath, ['Engineer Code', 'Ticket ID', 'Visit No', 'Visit Date', 'Visit In Time'])) {
     return 'ticketActivity';
   }
@@ -118,6 +160,20 @@ function normalizeSummary(type, result, dryRun = false) {
     warnings,
     ...(result.estimated_duplicates != null ? { estimated_duplicates: result.estimated_duplicates } : {}),
     ...(result.missing_required_headers ? { missing_required_headers: result.missing_required_headers } : {}),
+    ...(result.missing_required_values != null ? { missing_required_values: result.missing_required_values } : {}),
+    ...Object.fromEntries([
+      'valid_rows',
+      'rows_missing_service_area_name',
+      'rows_missing_state',
+      'rows_state_zero',
+      'rows_service_area_code_zero',
+      'invalid_pincodes',
+      'invalid_active_status',
+      'duplicate_pincodes_same_service_area',
+      'conflicting_pincodes',
+      'distinct_service_areas',
+      'distinct_states'
+    ].filter((key) => result[key] != null).map((key) => [key, result[key]])),
     message: dryRun
       ? 'Dry run completed. No data was imported.'
       : result.failed_rows
@@ -137,7 +193,20 @@ function rowCountForType(type, filePath) {
   if (type === 'serviceAreas') return rows.filter((row) => text(row['Service Area Code']));
   if (type === 'attendance') return rows.filter((row) => text(row['Employee Code']));
   if (type === 'ticketActivity') return rows.filter((row) => text(row['Ticket ID']) && text(row['Engineer Code']));
+  if (type === 'stateHeadMapping') return rows.filter((row) => Object.entries(row).some(([key, value]) => normalizeHeaderKey(key) === 'state' && text(value)));
+  if (type === 'serviceAreaEngineerMapping') return rows.filter((row) => Object.entries(row).some(([key, value]) => normalizeHeaderKey(key) === 'serviceareaname' && text(value)));
+  if (type === 'serviceAreaPincodeMapping') return rows.filter((row) => Object.values(row || {}).some((value) => text(value)));
   return rows;
+}
+
+function getFlexible(row, header) {
+  const wanted = normalizeHeaderKey(header);
+  const found = Object.entries(row || {}).find(([key]) => normalizeHeaderKey(key) === wanted);
+  return found ? found[1] : null;
+}
+
+function rowKey(row, headers) {
+  return headers.map((header) => normalizeHeaderKey(getFlexible(row, header))).join('|');
 }
 
 function formatVisitDateId(date) {
@@ -206,19 +275,70 @@ async function estimateDuplicates(type, filePath, originalName) {
     }
     return { rows, duplicates };
   }
+  if (type === 'stateHeadMapping') {
+    const seen = new Set();
+    let duplicates = 0;
+    for (const row of rows) {
+      const key = rowKey(row, ['state']);
+      if (seen.has(key)) duplicates += 1;
+      seen.add(key);
+    }
+    return { rows, duplicates };
+  }
+  if (type === 'serviceAreaEngineerMapping') {
+    const seen = new Set();
+    let duplicates = 0;
+    for (const row of rows) {
+      const code = normalizeHeaderKey(getFlexible(row, 'service_area_code'));
+      const key = code || rowKey(row, ['service_area_name', 'state']);
+      if (seen.has(key)) duplicates += 1;
+      seen.add(key);
+    }
+    return { rows, duplicates };
+  }
   return { rows, duplicates: 0 };
 }
 
+function missingRequiredValueCount(type, rows) {
+  const required = REQUIRED_HEADERS[type] || [];
+  return rows.filter((row) => required.some((header) => !text(getFlexible(row, header)))).length;
+}
+
 async function dryRunImport(type, filePath, originalName) {
+  if (type === 'serviceAreaPincodeMapping') {
+    const workbookInfo = getWorkbookInfo(filePath);
+    const sheetName = TYPE_META[type]?.sheet_used || workbookInfo[0]?.sheetName;
+    const sheet = workbookInfo.find((entry) => entry.sheetName === sheetName) || workbookInfo[0];
+    const missingRequiredHeaders = missingServiceAreaPincodeHeaders(sheet);
+    const rows = rowCountForType(type, filePath);
+    const { stats } = analyzeServiceAreaPincodeMappingRows(rows);
+    const warnings = [...stats.warnings];
+    if (missingRequiredHeaders.length) warnings.unshift('Some required headers are missing.');
+    return normalizeSummary(type, {
+      ...stats,
+      inserted_rows: 0,
+      updated_rows: 0,
+      skipped_duplicates: stats.duplicate_pincodes_same_service_area,
+      missing_required_headers: missingRequiredHeaders,
+      estimated_duplicates: stats.duplicate_pincodes_same_service_area,
+      warnings
+    }, true);
+  }
   const workbookInfo = getWorkbookInfo(filePath);
   const required = REQUIRED_HEADERS[type] || [];
   const sheetName = TYPE_META[type]?.sheet_used || workbookInfo[0]?.sheetName;
   const sheet = workbookInfo.find((entry) => entry.sheetName === sheetName) || workbookInfo[0];
   const headers = normalizeHeaders(sheet?.headers);
-  const missingRequiredHeaders = required.filter((header) => !headers.has(header.toLowerCase()));
+  let missingRequiredHeaders = required.filter((header) => !headers.has(normalizeHeaderKey(header)));
   const { rows, duplicates } = await estimateDuplicates(type, filePath, originalName);
+  if ((type === 'stateHeadMapping' || type === 'serviceAreaEngineerMapping') && rows.length) {
+    const rowHeaders = normalizeHeaders(Object.keys(rows[0] || {}));
+    missingRequiredHeaders = required.filter((header) => !rowHeaders.has(normalizeHeaderKey(header)));
+  }
   const warnings = [];
   if (missingRequiredHeaders.length) warnings.push('Some required headers are missing.');
+  const missingRequiredValues = missingRequiredValueCount(type, rows);
+  if (missingRequiredValues) warnings.push(`${missingRequiredValues} rows have missing required values.`);
   return normalizeSummary(type, {
     total_rows: rows.length,
     inserted_rows: 0,
@@ -227,6 +347,7 @@ async function dryRunImport(type, filePath, originalName) {
     failed_rows: 0,
     estimated_duplicates: duplicates,
     missing_required_headers: missingRequiredHeaders,
+    missing_required_values: missingRequiredValues,
     warnings
   }, true);
 }
@@ -237,6 +358,9 @@ async function ingestByType(type, filePath, originalName) {
   if (type === 'sites') return ingestCustomerSites(filePath);
   if (type === 'engineers') return ingestEngineers(filePath);
   if (type === 'serviceAreas') return ingestServiceAreas(filePath);
+  if (type === 'stateHeadMapping') return ingestStateHeadMapping(filePath);
+  if (type === 'serviceAreaEngineerMapping') return ingestServiceAreaEngineerMapping(filePath);
+  if (type === 'serviceAreaPincodeMapping') return ingestServiceAreaPincodeMapping(filePath);
   if (type === 'attendance') return ingestAttendance(filePath, originalName);
   if (type === 'ticketActivity' || type === 'visit_master') return ingestTicketActivity(filePath, originalName);
   throw new Error(`Unsupported import type: ${type}`);

@@ -7,7 +7,7 @@ export function PopRankingPanel({ pops = [], selectedPop, onSelectPop }) {
     return (
       <div className="pop-ranking-empty">
         <MapPinned size={20} />
-        <span>No POP markers found for this state.</span>
+        <span>No Service Area markers found for this state.</span>
         <span className="pop-ranking-note">Sites may lack coordinates in customer_site_master.</span>
       </div>
     );
@@ -16,7 +16,7 @@ export function PopRankingPanel({ pops = [], selectedPop, onSelectPop }) {
   return (
     <div className="pop-ranking-panel">
       <div className="pop-ranking-header">
-        <p>POP / Service Areas</p>
+        <p>Service Area Ranking</p>
         <strong>{pops.length} locations</strong>
       </div>
       <ul className="pop-ranking-list">
@@ -52,10 +52,10 @@ export function PopRankingPanel({ pops = [], selectedPop, onSelectPop }) {
           );
         })}
       </ul>
-      {/* POP centroid fallback note */}
+      {/* Service Area centroid fallback note */}
       {pops && pops.length > 0 && (
         <div className="pop-centroid-note">
-          POP locations are shown as centroid markers. Territory boundaries will be available after POP polygon data is added.
+          Service Area locations are shown as centroid markers. Territory boundaries will be available after Service Area polygon data is added.
         </div>
       )}
     </div>

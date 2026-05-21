@@ -19,6 +19,57 @@ function value(row, key) {
   return row[key] ?? null;
 }
 
+function normalizedHeaderKey(key) {
+  return String(key || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function flexibleValue(row, keys) {
+  const lookup = new Map(Object.keys(row || {}).map((key) => [normalizedHeaderKey(key), row[key]]));
+  for (const key of keys) {
+    const normalized = normalizedHeaderKey(key);
+    if (lookup.has(normalized)) return lookup.get(normalized);
+  }
+  return null;
+}
+
+function normalizedTextKey(valueToNormalize) {
+  return (text(valueToNormalize) || '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+}
+
+function normalizePincode(valueToNormalize) {
+  if (typeof valueToNormalize === 'number' && Number.isFinite(valueToNormalize)) {
+    return String(Math.trunc(valueToNormalize));
+  }
+  const raw = text(valueToNormalize);
+  return raw ? raw.replace(/\D/g, '') : null;
+}
+
+function normalizeActiveStatus(valueToNormalize) {
+  return (text(valueToNormalize) || '').toUpperCase();
+}
+
+function isAcceptedMappingStatus(valueToCheck) {
+  return ['YES', 'NO', 'ACTIVE', 'INACTIVE', 'TRUE', 'FALSE'].includes(normalizeActiveStatus(valueToCheck));
+}
+
+function isActiveMappingStatus(valueToCheck) {
+  return ['YES', 'ACTIVE', 'TRUE'].includes(normalizeActiveStatus(valueToCheck));
+}
+
+function serviceAreaPincodeField(row, field) {
+  const aliases = {
+    service_area_code: ['service_area_code', 'Service Area Code', 'Sercive Area Code'],
+    service_area_name: ['service_area_name', 'Service Area Name', 'Service Area'],
+    state: ['state', 'State'],
+    city: ['city', 'City', 'Top City'],
+    pincode: ['pincode', 'Pincode', 'Pin Code'],
+    active_status: ['active_status', 'Active Status', 'Status'],
+    effective_from: ['effective_from', 'Effective From'],
+    effective_to: ['effective_to', 'Effective To']
+  };
+  return flexibleValue(row, aliases[field] || [field]);
+}
+
 function formatVisitDateId(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return 'unknown';
   const yyyy = date.getFullYear();
@@ -315,6 +366,361 @@ export async function ingestServiceAreas(filePath) {
       skipped_duplicates: 0,
       failed_rows: 0,
       warnings: []
+    };
+  });
+}
+
+export async function ingestStateHeadMapping(filePath) {
+  const rows = readRows(filePath, 'Sheet1').filter((row) => text(flexibleValue(row, ['state'])));
+  const mapped = rows.map((row) => [
+    text(flexibleValue(row, ['state'])),
+    text(flexibleValue(row, ['state_head_name', 'State Head Name'])),
+    text(flexibleValue(row, ['state_head_employee_id', 'State Head Employee ID'])),
+    text(flexibleValue(row, ['phone', 'Phone'])),
+    text(flexibleValue(row, ['email', 'Email'])),
+    text(flexibleValue(row, ['active_status', 'Active Status'])),
+    text(flexibleValue(row, ['region', 'Region'])),
+    text(flexibleValue(row, ['backup_state_head_name', 'Backup State Head Name'])),
+    text(flexibleValue(row, ['backup_state_head_employee_id', 'Backup State Head Employee ID'])),
+    dateOnly(flexibleValue(row, ['effective_from', 'Effective From'])),
+    dateOnly(flexibleValue(row, ['effective_to', 'Effective To']))
+  ]);
+
+  return withTransaction(async (client) => {
+    let insertedRows = 0;
+    let updatedRows = 0;
+    let failedRows = 0;
+    const warnings = [];
+
+    for (const row of mapped) {
+      if (!row[0] || !row[1] || !row[2] || !row[5]) {
+        failedRows += 1;
+        continue;
+      }
+      const result = await client.query(
+        `INSERT INTO state_head_mapping
+         (state, state_head_name, state_head_employee_id, phone, email, active_status, region, backup_state_head_name, backup_state_head_employee_id, effective_from, effective_to)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ON CONFLICT (state_key) DO UPDATE SET
+           state = EXCLUDED.state,
+           state_head_name = EXCLUDED.state_head_name,
+           state_head_employee_id = EXCLUDED.state_head_employee_id,
+           phone = EXCLUDED.phone,
+           email = EXCLUDED.email,
+           active_status = EXCLUDED.active_status,
+           region = EXCLUDED.region,
+           backup_state_head_name = EXCLUDED.backup_state_head_name,
+           backup_state_head_employee_id = EXCLUDED.backup_state_head_employee_id,
+           effective_from = EXCLUDED.effective_from,
+           effective_to = EXCLUDED.effective_to,
+           updated_at = NOW()
+         RETURNING (xmax = 0) AS inserted`,
+        row
+      );
+      if (result.rows[0]?.inserted) insertedRows += 1;
+      else updatedRows += 1;
+    }
+
+    if (failedRows) warnings.push(`${failedRows} rows skipped because required ownership fields were missing.`);
+    return {
+      detected_file_type: 'state_head_mapping',
+      target_table: 'state_head_mapping',
+      sheet_used: 'Sheet1',
+      total_rows: mapped.length,
+      inserted_rows: insertedRows,
+      updated_rows: updatedRows,
+      skipped_duplicates: 0,
+      failed_rows: failedRows,
+      warnings
+    };
+  });
+}
+
+export async function ingestServiceAreaEngineerMapping(filePath) {
+  const rows = readRows(filePath, 'Sheet1').filter((row) => text(flexibleValue(row, ['service_area_name', 'Service Area Name'])));
+  const mapped = rows.map((row) => [
+    text(flexibleValue(row, ['service_area_code', 'Service Area Code'])),
+    text(flexibleValue(row, ['service_area_name', 'Service Area Name'])),
+    text(flexibleValue(row, ['state', 'State'])),
+    text(flexibleValue(row, ['engineer_id', 'Engineer ID'])),
+    text(flexibleValue(row, ['engineer_name', 'Engineer Name'])),
+    dateOnly(flexibleValue(row, ['assignment_start_date', 'Assignment Start Date'])),
+    text(flexibleValue(row, ['active_status', 'Active Status'])),
+    text(flexibleValue(row, ['backup_engineer_id', 'Backup Engineer ID'])),
+    text(flexibleValue(row, ['backup_engineer_name', 'Backup Engineer Name'])),
+    text(flexibleValue(row, ['manager_employee_id', 'Manager Employee ID'])),
+    text(flexibleValue(row, ['manager_name', 'Manager Name'])),
+    dateOnly(flexibleValue(row, ['effective_from', 'Effective From'])),
+    dateOnly(flexibleValue(row, ['effective_to', 'Effective To']))
+  ]);
+
+  return withTransaction(async (client) => {
+    let insertedRows = 0;
+    let updatedRows = 0;
+    let failedRows = 0;
+    const warnings = [];
+
+    for (const row of mapped) {
+      if (!row[1] || !row[2] || !row[3] || !row[4] || !row[6]) {
+        failedRows += 1;
+        continue;
+      }
+
+      const sql = row[0]
+        ? `INSERT INTO service_area_engineer_mapping
+           (service_area_code, service_area_name, state, engineer_id, engineer_name, assignment_start_date, active_status, backup_engineer_id, backup_engineer_name, manager_employee_id, manager_name, effective_from, effective_to)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+           ON CONFLICT (service_area_code) WHERE service_area_code IS NOT NULL DO UPDATE SET
+             service_area_name = EXCLUDED.service_area_name,
+             state = EXCLUDED.state,
+             engineer_id = EXCLUDED.engineer_id,
+             engineer_name = EXCLUDED.engineer_name,
+             assignment_start_date = EXCLUDED.assignment_start_date,
+             active_status = EXCLUDED.active_status,
+             backup_engineer_id = EXCLUDED.backup_engineer_id,
+             backup_engineer_name = EXCLUDED.backup_engineer_name,
+             manager_employee_id = EXCLUDED.manager_employee_id,
+             manager_name = EXCLUDED.manager_name,
+             effective_from = EXCLUDED.effective_from,
+             effective_to = EXCLUDED.effective_to,
+             updated_at = NOW()
+           RETURNING (xmax = 0) AS inserted`
+        : `INSERT INTO service_area_engineer_mapping
+           (service_area_code, service_area_name, state, engineer_id, engineer_name, assignment_start_date, active_status, backup_engineer_id, backup_engineer_name, manager_employee_id, manager_name, effective_from, effective_to)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+           ON CONFLICT (service_area_key, state_key) WHERE service_area_code IS NULL DO UPDATE SET
+             service_area_name = EXCLUDED.service_area_name,
+             state = EXCLUDED.state,
+             engineer_id = EXCLUDED.engineer_id,
+             engineer_name = EXCLUDED.engineer_name,
+             assignment_start_date = EXCLUDED.assignment_start_date,
+             active_status = EXCLUDED.active_status,
+             backup_engineer_id = EXCLUDED.backup_engineer_id,
+             backup_engineer_name = EXCLUDED.backup_engineer_name,
+             manager_employee_id = EXCLUDED.manager_employee_id,
+             manager_name = EXCLUDED.manager_name,
+             effective_from = EXCLUDED.effective_from,
+             effective_to = EXCLUDED.effective_to,
+             updated_at = NOW()
+           RETURNING (xmax = 0) AS inserted`;
+
+      const result = await client.query(sql, row);
+      if (result.rows[0]?.inserted) insertedRows += 1;
+      else updatedRows += 1;
+    }
+
+    if (failedRows) warnings.push(`${failedRows} rows skipped because required ownership fields were missing.`);
+    return {
+      detected_file_type: 'service_area_engineer_mapping',
+      target_table: 'service_area_engineer_mapping',
+      sheet_used: 'Sheet1',
+      total_rows: mapped.length,
+      inserted_rows: insertedRows,
+      updated_rows: updatedRows,
+      skipped_duplicates: 0,
+      failed_rows: failedRows,
+      warnings
+    };
+  });
+}
+
+export function analyzeServiceAreaPincodeMappingRows(rows = []) {
+  const stats = {
+    total_rows: rows.length,
+    valid_rows: 0,
+    failed_rows: 0,
+    rows_missing_service_area_name: 0,
+    rows_missing_state: 0,
+    rows_state_zero: 0,
+    rows_service_area_code_zero: 0,
+    invalid_pincodes: 0,
+    invalid_active_status: 0,
+    duplicate_pincodes_same_service_area: 0,
+    conflicting_pincodes: 0,
+    distinct_service_areas: 0,
+    distinct_states: 0,
+    warnings: []
+  };
+  const seenByPincode = new Map();
+  const serviceAreas = new Set();
+  const states = new Set();
+  const validRows = [];
+
+  for (const row of rows) {
+    const serviceAreaCodeRaw = text(serviceAreaPincodeField(row, 'service_area_code'));
+    const serviceAreaCode = serviceAreaCodeRaw === '0' ? null : serviceAreaCodeRaw;
+    const serviceAreaName = text(serviceAreaPincodeField(row, 'service_area_name'));
+    const state = text(serviceAreaPincodeField(row, 'state'));
+    const city = text(serviceAreaPincodeField(row, 'city'));
+    const pincode = normalizePincode(serviceAreaPincodeField(row, 'pincode'));
+    const activeStatus = text(serviceAreaPincodeField(row, 'active_status'));
+    const effectiveFrom = dateOnly(serviceAreaPincodeField(row, 'effective_from'));
+    const effectiveTo = dateOnly(serviceAreaPincodeField(row, 'effective_to'));
+    const serviceAreaKey = normalizedTextKey(serviceAreaName);
+    const stateKey = normalizedTextKey(state);
+    let rowFailed = false;
+
+    if (!serviceAreaName) {
+      stats.rows_missing_service_area_name += 1;
+      rowFailed = true;
+    }
+    if (!state) {
+      stats.rows_missing_state += 1;
+      rowFailed = true;
+    }
+    if (state === '0') {
+      stats.rows_state_zero += 1;
+      rowFailed = true;
+    }
+    if (serviceAreaCodeRaw === '0') {
+      stats.rows_service_area_code_zero += 1;
+    }
+    if (!pincode || !/^\d{6}$/.test(pincode)) {
+      stats.invalid_pincodes += 1;
+      rowFailed = true;
+    }
+    if (!isAcceptedMappingStatus(activeStatus)) {
+      stats.invalid_active_status += 1;
+      rowFailed = true;
+    }
+
+    if (serviceAreaKey) serviceAreas.add(serviceAreaKey);
+    if (stateKey && state !== '0') states.add(stateKey);
+
+    if (!rowFailed) {
+      const currentKey = `${serviceAreaKey}|${stateKey}`;
+      const existing = seenByPincode.get(pincode);
+      if (existing) {
+        if (existing.areaKey === currentKey) {
+          stats.duplicate_pincodes_same_service_area += 1;
+          continue;
+        }
+        stats.conflicting_pincodes += 1;
+        stats.failed_rows += 1;
+        continue;
+      }
+      seenByPincode.set(pincode, { areaKey: currentKey, serviceAreaName, state });
+      validRows.push({
+        service_area_code: serviceAreaCode,
+        service_area_name: serviceAreaName,
+        service_area_key: serviceAreaKey,
+        state,
+        state_key: stateKey,
+        city,
+        pincode,
+        active_status: activeStatus,
+        effective_from: effectiveFrom,
+        effective_to: effectiveTo
+      });
+      continue;
+    }
+
+    stats.failed_rows += 1;
+  }
+
+  stats.valid_rows = validRows.length;
+  stats.distinct_service_areas = serviceAreas.size;
+  stats.distinct_states = states.size;
+  if (stats.rows_service_area_code_zero) stats.warnings.push(`${stats.rows_service_area_code_zero} rows have service_area_code = 0; code will be stored blank for those imported rows.`);
+  if (stats.invalid_pincodes) stats.warnings.push(`${stats.invalid_pincodes} rows have invalid pincodes.`);
+  if (stats.invalid_active_status) stats.warnings.push(`${stats.invalid_active_status} rows have unsupported active_status values.`);
+  if (stats.duplicate_pincodes_same_service_area) stats.warnings.push(`${stats.duplicate_pincodes_same_service_area} duplicate pincode rows map to the same Service Area and will be skipped.`);
+  if (stats.conflicting_pincodes) stats.warnings.push(`${stats.conflicting_pincodes} pincodes map to multiple Service Areas and will not be imported.`);
+
+  return { stats, validRows };
+}
+
+export async function ingestServiceAreaPincodeMapping(filePath) {
+  const rows = readRows(filePath, 'Sheet1').filter((row) => Object.values(row || {}).some((valueToCheck) => text(valueToCheck)));
+  const { stats, validRows } = analyzeServiceAreaPincodeMappingRows(rows);
+
+  return withTransaction(async (client) => {
+    let insertedRows = 0;
+    let updatedRows = 0;
+    let skippedDuplicates = stats.duplicate_pincodes_same_service_area;
+    let failedRows = stats.failed_rows;
+    const warnings = [...stats.warnings];
+
+    for (const row of validRows) {
+      if (isActiveMappingStatus(row.active_status)) {
+        const existing = await client.query(
+          `SELECT id, service_area_name, state, service_area_key, state_key
+           FROM service_area_pincode_mapping
+           WHERE pincode = $1 AND UPPER(TRIM(active_status)) IN ('YES', 'ACTIVE', 'TRUE')
+           LIMIT 1`,
+          [row.pincode]
+        );
+        if (existing.rowCount) {
+          const current = existing.rows[0];
+          if (current.service_area_key !== row.service_area_key || current.state_key !== row.state_key) {
+            failedRows += 1;
+            warnings.push(`Pincode ${row.pincode} already has active mapping to ${current.service_area_name}, ${current.state}; conflicting row skipped.`);
+            continue;
+          }
+          await client.query(
+            `UPDATE service_area_pincode_mapping
+             SET service_area_code = $2, service_area_name = $3, state = $4, city = $5,
+                 active_status = $6, effective_from = $7, effective_to = $8, updated_at = NOW()
+             WHERE id = $1`,
+            [current.id, row.service_area_code, row.service_area_name, row.state, row.city, row.active_status, row.effective_from, row.effective_to]
+          );
+          updatedRows += 1;
+          continue;
+        }
+      } else {
+        const existingInactive = await client.query(
+          `SELECT id FROM service_area_pincode_mapping
+           WHERE pincode = $1
+             AND service_area_key = $2
+             AND state_key = $3
+             AND UPPER(TRIM(COALESCE(active_status, ''))) = $4
+           LIMIT 1`,
+          [row.pincode, row.service_area_key, row.state_key, normalizeActiveStatus(row.active_status)]
+        );
+        if (existingInactive.rowCount) {
+          await client.query(
+            `UPDATE service_area_pincode_mapping
+             SET service_area_code = $2, service_area_name = $3, state = $4, city = $5,
+                 active_status = $6, effective_from = $7, effective_to = $8, updated_at = NOW()
+             WHERE id = $1`,
+            [existingInactive.rows[0].id, row.service_area_code, row.service_area_name, row.state, row.city, row.active_status, row.effective_from, row.effective_to]
+          );
+          updatedRows += 1;
+          continue;
+        }
+      }
+
+      const result = await client.query(
+        `INSERT INTO service_area_pincode_mapping
+         (service_area_code, service_area_name, state, city, pincode, active_status, effective_from, effective_to)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         RETURNING id`,
+        [row.service_area_code, row.service_area_name, row.state, row.city, row.pincode, row.active_status, row.effective_from, row.effective_to]
+      );
+      if (result.rowCount) insertedRows += 1;
+    }
+
+    return {
+      detected_file_type: 'service_area_pincode_mapping',
+      target_table: 'service_area_pincode_mapping',
+      sheet_used: 'Sheet1',
+      total_rows: stats.total_rows,
+      valid_rows: stats.valid_rows,
+      inserted_rows: insertedRows,
+      updated_rows: updatedRows,
+      skipped_duplicates: skippedDuplicates,
+      failed_rows: failedRows,
+      rows_missing_service_area_name: stats.rows_missing_service_area_name,
+      rows_missing_state: stats.rows_missing_state,
+      rows_state_zero: stats.rows_state_zero,
+      rows_service_area_code_zero: stats.rows_service_area_code_zero,
+      invalid_pincodes: stats.invalid_pincodes,
+      invalid_active_status: stats.invalid_active_status,
+      duplicate_pincodes_same_service_area: stats.duplicate_pincodes_same_service_area,
+      conflicting_pincodes: stats.conflicting_pincodes,
+      distinct_service_areas: stats.distinct_service_areas,
+      distinct_states: stats.distinct_states,
+      warnings
     };
   });
 }

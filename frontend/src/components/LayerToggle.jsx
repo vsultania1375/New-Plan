@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Layers, Map, MapPin, Ticket, Users } from 'lucide-react';
+import { Activity, Layers, Map, MapPinned, MapPin, Ticket, Users } from 'lucide-react';
 import { MAP_LAYERS } from './territoryUtils.js';
 
 const layerIcons = {
@@ -9,7 +9,15 @@ const layerIcons = {
   productivity: Users
 };
 
-export function LayerToggle({ activeLayer, showPopMarkers, selectedState, onLayerChange, onTogglePopMarkers }) {
+export function LayerToggle({
+  activeLayer,
+  showPopMarkers,
+  showServiceAreaTerritories,
+  selectedState,
+  onLayerChange,
+  onTogglePopMarkers,
+  onToggleServiceAreaTerritories
+}) {
   return (
     <div className="layer-buttons territory-layer-buttons">
       <span><Layers size={15} /> Layer</span>
@@ -27,16 +35,24 @@ export function LayerToggle({ activeLayer, showPopMarkers, selectedState, onLaye
           </button>
         );
       })}
-      {!selectedState && (
+      {selectedState && (
         <button
-          className={showPopMarkers ? 'active subtle-active' : ''}
+          className={showServiceAreaTerritories ? 'active subtle-active' : ''}
           type="button"
-          onClick={onTogglePopMarkers}
+          onClick={onToggleServiceAreaTerritories}
         >
-          <MapPin size={15} />
-          POP markers
+          <MapPinned size={15} />
+          Service Area Territories
         </button>
       )}
+      <button
+        className={showPopMarkers ? 'active subtle-active' : ''}
+        type="button"
+        onClick={onTogglePopMarkers}
+      >
+        <MapPin size={15} />
+        Service Area markers
+      </button>
     </div>
   );
 }

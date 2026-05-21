@@ -8,15 +8,16 @@ const legendText = {
   productivity: 'Darker green means more visits per active engineer.'
 };
 
-export function MapLegend({ activeLayer, maxValue }) {
+export function MapLegend({ activeLayer, maxValue, className = '' }) {
   const layer = MAP_LAYERS.find((item) => item.key === activeLayer);
+  const segmentCount = activeLayer === 'offline' ? 4 : 3;
 
   return (
-    <div className={`map-legend map-legend-${layer?.tone || 'blue'}`}>
-      <div className="legend-scale">
-        <i />
-        <i />
-        <i />
+    <div className={`map-legend map-legend-${layer?.tone || 'blue'} ${className}`.trim()}>
+      <div className={`legend-scale ${activeLayer === 'offline' ? 'legend-scale-offline' : ''}`}>
+        {Array.from({ length: segmentCount }).map((_, index) => (
+          <i key={index} />
+        ))}
       </div>
       <strong>{layer?.label}</strong>
       <span>{activeLayer === 'offline' || maxValue ? legendText[activeLayer] : 'Data pending for this layer.'}</span>

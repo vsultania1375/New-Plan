@@ -62,6 +62,27 @@ export async function getDashboardData(fallbacks) {
   return { data, failures };
 }
 
+export async function getStateWiseReport() {
+  return request('/analytics/state-wise');
+}
+
+export async function getServiceAreaProfile({ state, serviceArea }) {
+  const params = new URLSearchParams();
+  if (state) params.set('state', state);
+  if (serviceArea) params.set('serviceArea', serviceArea);
+  return request(`/analytics/service-area-profile?${params.toString()}`);
+}
+
+export async function getTerritoryCoverageAudit() {
+  return request('/analytics/territory-coverage-audit');
+}
+
+export async function getServiceAreaTerritories(state) {
+  const params = new URLSearchParams();
+  if (state) params.set('state', state);
+  return request(`/analytics/territories/service-areas?${params.toString()}`);
+}
+
 export async function uploadFile(file, type, adminKey, { dryRun = false } = {}) {
   const formData = new FormData();
   formData.append('file', file);

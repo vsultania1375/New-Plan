@@ -92,10 +92,10 @@ export function getOfflinePercentage(row) {
 
 export function getOfflineSeverityColorByPercentage(percent) {
   if (percent === null || percent === undefined || !Number.isFinite(Number(percent))) return '#e5e7eb';
-  if (percent > 10) return '#a84d49';
-  if (percent > 5) return '#b57a31';
-  if (percent > 2) return '#d8b24a';
-  return '#6d9b7e';
+  if (percent > 10) return '#C0392B';
+  if (percent > 5) return '#E67E22';
+  if (percent > 2) return '#D6A100';
+  return '#2E7D32';
 }
 
 export function getOfflineSeverityLabelByPercentage(percent) {

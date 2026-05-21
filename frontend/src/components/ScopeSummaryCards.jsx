@@ -11,7 +11,7 @@ const cards = [
   { key: 'completed_tickets', label: 'Completed Tickets', icon: CheckCircle2, tone: 'good' },
   { key: 'closed_tickets', label: 'Closed Tickets', icon: Wrench, tone: 'neutral' },
   { key: 'active_engineers', label: 'Active Engineers', icon: Users, tone: 'good' },
-  { key: 'total_pops', label: 'Total POP Locations', icon: MapPinned, tone: 'neutral' },
+  { key: 'total_pops', label: 'Total Service Areas', icon: MapPinned, tone: 'neutral' },
   { key: 'avg_tat', label: 'Avg TAT', icon: Clock, tone: 'warning', suffix: ' days' }
 ];
 

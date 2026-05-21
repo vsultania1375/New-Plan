@@ -14,6 +14,8 @@ import { KpiCard } from './components/KpiCard.jsx';
 import { ReportPlaceholder } from './components/ReportPlaceholder.jsx';
 import { ReportTabs } from './components/ReportTabs.jsx';
 import { RiskPopsPanel, RiskStatesPanel } from './components/RiskPanels.jsx';
+import { StateWiseReport } from './components/StateWiseReport.jsx';
+import { TerritoryCoverageAudit } from './components/TerritoryCoverageAudit.jsx';
 import { TerritoryMapCard } from './components/TerritoryMapCard.jsx';
 
 const COLORS = ['#dc2626', '#f97316', '#f59e0b', '#2563eb', '#10b981', '#7c3aed', '#64748b'];
@@ -94,11 +96,11 @@ function DetailTables({ data }) {
           ]}
         />
         <DataTable
-          title="POP / Service Area Detail"
+          title="Service Area Detail"
           rows={data.serviceAreaRisk}
           exportName="service-area-risk"
           columns={[
-            { key: 'service_area_name', label: 'POP' },
+            { key: 'service_area_name', label: 'Service Area' },
             { key: 'state', label: 'State' },
             { key: 'offline_sites', label: 'Offline' },
             { key: 'offline_more_than_5_days', label: '>5 Days' },
@@ -114,7 +116,7 @@ function DetailTables({ data }) {
             { key: 'site_name', label: 'Site' },
             { key: 'state', label: 'State' },
             { key: 'aging_days', label: 'Aging' },
-            { key: 'service_area_name', label: 'POP' }
+            { key: 'service_area_name', label: 'Service Area' }
           ]}
         />
         <DataTable
@@ -300,9 +302,9 @@ export function App() {
       icon: Users,
       tone: 'good',
       rows: [
-        { label: 'POPs', value: formatMetric(activeOverview.total_pops) },
+        { label: 'Service Areas', value: formatMetric(activeOverview.total_pops) },
         { label: 'Engineers', value: formatMetric(activeOverview.active_engineers) },
-        { label: 'Blank POPs', value: formatMetric(activeOverview.blank_pops) }
+        { label: 'Blank Service Areas', value: formatMetric(activeOverview.blank_pops) }
       ]
     }
   ];
@@ -337,6 +339,8 @@ export function App() {
 
           <TerritoryMapCard states={data.stateMap} popMarkers={visibleMarkers} stateRisk={data.stateRisk} overview={activeOverview} onSelectPop={setSelectedPop} />
 
+          <TerritoryCoverageAudit />
+
           <GroundLagFunnel overview={activeOverview} />
 
           <section className="visual-two-col">
@@ -351,7 +355,7 @@ export function App() {
         </>
       )}
 
-      {activeReport === 'state' && <ReportPlaceholder title="State Wise Report" description="This report will be configured later." />}
+      {activeReport === 'state' && <StateWiseReport />}
       {activeReport === 'engineer' && <ReportPlaceholder title="Engineer Wise Report" description="This report will be configured later." />}
       {activeReport === 'customer' && <ReportPlaceholder title="Customer Wise Report" description="This report will be configured later." />}
     </DashboardLayout>

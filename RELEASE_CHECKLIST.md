@@ -2,6 +2,10 @@
 
 Use this checklist before calling the dashboard ready for daily operational use or stakeholder demo.
 
+## Business Terminology: POP = Service Area
+
+POP and Service Area are the same operational unit in this dashboard. Use `service_area_name` as the POP / Service Area display name and `service_area_code` where available for mapping. Do not treat POP as a separate hierarchy unless business introduces a new mapping later.
+
 ## 1. Local Startup Checklist
 
 - [ ] Docker Desktop is running
@@ -35,6 +39,10 @@ Use this checklist before calling the dashboard ready for daily operational use 
 - [ ] Row counts look plausible before upload
 - [ ] Duplicate estimates are reviewed
 - [ ] Upload result panel shows inserted / updated / skipped / failed counts
+- [ ] `StateHeadMapping.xlsx` is uploaded when State Head ownership is expected
+- [ ] `ServiceAreaEngineerMapping.xlsx` is uploaded when Service Area owner accountability is expected
+- [ ] `ServiceAreaPincodeMapping.xlsx` is validated/uploaded when pincode-to-Service Area territory mapping is expected
+- [ ] `ServiceAreaPincodeMapping.xlsx` dry run has no unresolved pincode conflicts or invalid pincodes
 - [ ] Append-only re-imports skip duplicates as expected
 - [ ] `view_ticket` snapshot refresh completes successfully
 - [ ] Post-upload message says `Upload successful. Dashboard updated.`
@@ -45,11 +53,13 @@ Use this checklist before calling the dashboard ready for daily operational use 
 - [ ] Territory map loads
 - [ ] Operations Summary Panel is populated
 - [ ] State hover shows the floating map info card
-- [ ] Floating card stays anchored to territory / POP, not the cursor
+- [ ] Floating card stays anchored to territory / Service Area, not the cursor
 - [ ] State click selects and zooms correctly
-- [ ] POP markers appear after state selection
-- [ ] POP ranking panel works
-- [ ] State risk / POP risk sections render
+- [ ] Service Area markers appear after state selection
+- [ ] Service Area ranking panel works
+- [ ] State Wise ownership shows mapped State Heads or `Mapping Pending`
+- [ ] Service Area Profile shows mapped active engineer owner or `Mapping Pending`
+- [ ] State risk / Service Area risk sections render
 - [ ] Engineer load table renders
 - [ ] Ticket-without-visit table renders
 - [ ] Exports respect current filters where applicable
@@ -61,7 +71,7 @@ Use this checklist before calling the dashboard ready for daily operational use 
 - [ ] Top KPI story is understandable in under one minute
 - [ ] PAN India map clearly shows risk concentration
 - [ ] State drilldown works smoothly
-- [ ] POP drilldown works smoothly
+- [ ] Service Area drilldown works smoothly
 - [ ] Operations Summary Panel can explain where lag is occurring
 - [ ] One example table is ready for deeper discussion
 - [ ] Admin upload workflow can be demonstrated if needed
@@ -73,7 +83,9 @@ Use this checklist before calling the dashboard ready for daily operational use 
 - Some analytics still have technical debt around direct `cs_id` joins
 - Full visit history is still evolving; some productivity metrics remain MVP-grade
 - Date/state filter wiring is not fully complete across all API queries
-- POP view is centroid-based only; real POP polygons are not yet available
+- Service Area view is centroid-based only; real Service Area polygons are not yet available
+- `ServiceAreaPincodeMapping.xlsx` only maps pincodes to Service Areas; it does not draw polygons until approved pincode boundary GeoJSON is added
+- Ownership requires approved mapping files; ticket assignment is not ownership
 - No formal migration system exists yet
 - Automated tests are still limited
 
@@ -87,7 +99,9 @@ Use this checklist before calling the dashboard ready for daily operational use 
   - `attendance_data`
 - Do not change schema casually
 - Do not run `docker compose down -v`
-- Do not invent POP polygons
+- Do not invent Service Area polygons
+- Do not silently import conflicting pincode-to-Service Area mappings
+- Do not infer State Head or Service Area owner from ticket assignment
 - Do not bypass dry-run validation in daily operations
 - Do not treat `ADMIN_UPLOAD_KEY` as production security
 

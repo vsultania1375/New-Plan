@@ -18,7 +18,7 @@ export function StateTooltipCard({ state, layerLabel }) {
         <dt>Completed Tickets</dt><dd>{formatNumber(state?.completed_tickets)}</dd>
         <dt>Closed Tickets</dt><dd>{formatNumber(state?.closed_tickets)}</dd>
         <dt>Active Engineers</dt><dd>{formatNumber(state?.active_engineers)}</dd>
-        <dt>Total POPs</dt><dd>{formatNumber(state?.total_pops)}</dd>
+        <dt>Total Service Areas</dt><dd>{formatNumber(state?.total_pops)}</dd>
         <dt>Avg TAT</dt><dd>{state?.avg_tat ?? '-'}</dd>
       </dl>
     </div>

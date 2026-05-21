@@ -76,7 +76,7 @@ function SummaryChip({ label, isSelected = false, onClick, clickable = false }) 
 }
 
 export function OperationsSummaryPanel({
-  scopeType = 'PAN_INDIA', // PAN_INDIA | STATE | POP
+  scopeType = 'PAN_INDIA', // PAN_INDIA | STATE | POP (POP = Service Area)
   scopeData = {},
   topRiskStates = [],
   popList = [],
@@ -93,7 +93,7 @@ export function OperationsSummaryPanel({
 
   const scopeTitle = useMemo(() => {
     if (scopeType === 'POP' && selectedPop) {
-      return `POP Operations Summary`;
+      return `Service Area Operations Summary`;
     } else if (scopeType === 'STATE' && selectedState) {
       return `State Operations Summary`;
     }
@@ -104,7 +104,7 @@ export function OperationsSummaryPanel({
   const topRowMetrics = useMemo(() => {
     if (scopeType === 'POP' && selectedPop) {
       return {
-        'POP': selectedPop.service_area_name || '—',
+        'SERVICE AREA': selectedPop.service_area_name || '—',
         'STATE': selectedPop.state || '—',
         'ENGINEER': selectedPop.engineer_name || '—',
         'TOTAL SITES': selectedPop.total_mapped_sites || '—',
@@ -114,7 +114,7 @@ export function OperationsSummaryPanel({
     } else if (scopeType === 'STATE' && selectedState) {
       return {
         'STATE': selectedState.state || '—',
-        'TOTAL POPS': selectedState.total_pops || '—',
+        'TOTAL SERVICE AREAS': selectedState.total_pops || '—',
         'ACTIVE ENGINEERS': selectedState.active_engineers || '—',
         'TOTAL SITES': selectedState.total_sites || '—',
         'OFFLINE SITES': selectedState.total_offline || '—',
@@ -126,7 +126,7 @@ export function OperationsSummaryPanel({
       'SCOPE': 'PAN India',
       'SEGMENT': 'PSU',
       'STATES COVERED': scopeData.states_count || '—',
-      'TOTAL POPS': scopeData.total_pops || '—',
+      'TOTAL SERVICE AREAS': scopeData.total_pops || '—',
       'ACTIVE ENGINEERS': scopeData.active_engineers || '—',
       'DATA DATE': scopeData.data_date || '—'
     };
@@ -135,7 +135,7 @@ export function OperationsSummaryPanel({
   // Chips to display
   const chips = useMemo(() => {
     if (scopeType === 'POP') {
-      // Classification chips for POP
+      // Classification chips for selected Service Area
       const chips = [];
       if (selectedPop?.riskLevel === 'critical') chips.push('Critical');
       if (selectedPop?.riskLevel === 'warning') chips.push('Warning');
@@ -143,7 +143,7 @@ export function OperationsSummaryPanel({
       if (selectedPop?.active_tickets > 0 && selectedPop?.total_ticket_visits === 0) chips.push('Ticket Delay');
       return chips;
     } else if (scopeType === 'STATE') {
-      // POP chips for state scope
+      // Service Area chips for state scope
       return (popList || []).slice(0, 6).map(pop => ({
         label: pop.service_area_name || 'Unmapped',
         id: pop.service_area_name,
@@ -168,7 +168,7 @@ export function OperationsSummaryPanel({
   const healthMetrics = useMemo(() => {
     if (scopeType === 'POP' && selectedPop) {
       const offlineCritical = selectedPop.offline_more_than_5_days > 0;
-      const ticketGap = 0; // Not available at POP level in current data
+      const ticketGap = 0; // Not available at Service Area level in current data
       const visitGap = selectedPop.active_tickets > 0 && selectedPop.total_ticket_visits === 0;
       
       return [
@@ -326,7 +326,7 @@ export function OperationsSummaryPanel({
       {chips.length > 0 && (
         <div className="summary-chips-row">
           <div className="chips-label">
-            {scopeType === 'POP' ? 'Classification' : scopeType === 'STATE' ? 'POPs in State' : 'Top Risk States'}
+            {scopeType === 'POP' ? 'Classification' : scopeType === 'STATE' ? 'Service Areas in State' : 'Top Risk States'}
           </div>
           <div className="chips-container">
             {chips.map((chip) => (

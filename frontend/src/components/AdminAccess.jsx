@@ -108,6 +108,9 @@ export function AdminUploadPanel({ adminKey, onDone }) {
           <option value="sites">Customer Site Master</option>
           <option value="engineers">Employee Master</option>
           <option value="serviceAreas">Service Area Master</option>
+          <option value="stateHeadMapping">State Head Mapping</option>
+          <option value="serviceAreaEngineerMapping">Service Area Engineer Mapping</option>
+          <option value="serviceAreaPincodeMapping">Service Area Pincode Mapping</option>
           <option value="attendance">Attendance</option>
           <option value="ticketActivity">Ticket Activity / Visit Data</option>
         </select>
@@ -145,6 +148,7 @@ function ImportSummary({ summary }) {
         <dt>Total rows</dt><dd>{summary.total_rows ?? '—'}</dd>
         {summary.dry_run ? (
           <>
+            {summary.valid_rows != null && <><dt>Valid rows</dt><dd>{summary.valid_rows}</dd></>}
             <dt>Estimated duplicates</dt><dd>{summary.estimated_duplicates ?? '—'}</dd>
           </>
         ) : (
@@ -156,8 +160,12 @@ function ImportSummary({ summary }) {
           </>
         )}
       </dl>
+      <ImportExtraMetrics summary={summary} />
       {summary.missing_required_headers?.length > 0 && (
         <p>Missing headers: {summary.missing_required_headers.join(', ')}</p>
+      )}
+      {summary.missing_required_values > 0 && (
+        <p>Rows with missing required values: {summary.missing_required_values}</p>
       )}
       {warnings.length > 0 && (
         <ul>
@@ -165,5 +173,33 @@ function ImportSummary({ summary }) {
         </ul>
       )}
     </section>
+  );
+}
+
+function ImportExtraMetrics({ summary }) {
+  const metrics = [
+    ['Rows missing Service Area', summary.rows_missing_service_area_name],
+    ['Rows missing state', summary.rows_missing_state],
+    ['Rows with state = 0', summary.rows_state_zero],
+    ['Rows with Service Area Code = 0', summary.rows_service_area_code_zero],
+    ['Invalid pincodes', summary.invalid_pincodes],
+    ['Invalid active status', summary.invalid_active_status],
+    ['Duplicate pincodes / same Service Area', summary.duplicate_pincodes_same_service_area],
+    ['Conflicting pincodes', summary.conflicting_pincodes],
+    ['Distinct Service Areas', summary.distinct_service_areas],
+    ['Distinct states', summary.distinct_states]
+  ].filter(([, value]) => value !== null && value !== undefined);
+
+  if (!metrics.length) return null;
+
+  return (
+    <dl>
+      {metrics.map(([label, value]) => (
+        <React.Fragment key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </React.Fragment>
+      ))}
+    </dl>
   );
 }

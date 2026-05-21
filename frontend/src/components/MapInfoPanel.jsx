@@ -27,18 +27,25 @@ function getRows(model) {
     ['Completed Tickets', formatTicketCount(model.completed_tickets, model)],
     ['Closed Tickets', formatTicketCount(model.closed_tickets, model)],
     ['Active Engineers', model.active_engineers],
-    ['Total POPs', model.total_pops],
+    ['Total Service Areas', model.total_pops],
     ['Avg TAT', model.avg_tat]
   ];
 }
 
-function getPanelModel({ hoveredState, selectedState, selectedPop, panIndiaSummary }) {
+function getCompactRows(rows, isServiceArea) {
+  const allowed = isServiceArea
+    ? new Set(['Total Sites', 'Total Offline Sites', 'Offline %', 'Open Tickets', 'Pending Tickets', 'Avg TAT'])
+    : new Set(['Total Sites', 'Total Offline Sites', 'Offline > 3 Days', 'Offline %', 'Open Tickets', 'Pending Tickets', 'Active Engineers', 'Avg TAT']);
+  return rows.filter(([label]) => allowed.has(label));
+}
+
+function getPanelModel({ hoveredState, selectedState, selectedPop, panIndiaSummary, variant }) {
   if (selectedPop) {
     const status = selectedPop.ticket_status_counts || {};
     const popModel = {
       total_sites: selectedPop.total_mapped_sites,
       total_offline: selectedPop.offline_sites,
-      offline_gt_3_days: null,
+      offline_gt_3_days: selectedPop.offline_gt_3_days ?? null,
       open_tickets: status.OPEN || 0,
       pending_tickets: status.PENDING || 0,
       completed_tickets: status.COMPLETED || 0,
@@ -47,15 +54,16 @@ function getPanelModel({ hoveredState, selectedState, selectedPop, panIndiaSumma
       total_pops: null,
       avg_tat: selectedPop.avg_ticket_aging
     };
+    const rows = getRows(popModel);
     return {
-      eyebrow: 'Selected POP',
+      eyebrow: 'Selected Service Area',
       title: selectedPop.service_area_name,
       subtitle: selectedPop.state,
       riskLevel: selectedPop.riskLevel || 'normal',
       riskLabel: selectedPop.riskLevel
         ? `${selectedPop.riskLevel.charAt(0).toUpperCase()}${selectedPop.riskLevel.slice(1)}`
         : 'Normal',
-      rows: getRows(popModel)
+      rows: variant === 'compact' ? getCompactRows(rows, true) : rows
     };
   }
 
@@ -65,26 +73,30 @@ function getPanelModel({ hoveredState, selectedState, selectedPop, panIndiaSumma
   const severityLabel = getOfflineSeverityLabelByPercentage(offlinePercent);
   const riskTone = severityLabel === 'Critical'
     ? 'critical'
-    : severityLabel === 'High' || severityLabel === 'Warning'
+    : severityLabel === 'High'
+    ? 'high'
+    : severityLabel === 'Warning'
     ? 'warning'
     : 'normal';
 
+  const rows = getRows(state);
   return {
     eyebrow: selectedState ? 'Selected State' : hoveredState ? 'Hovered State' : 'Scope',
     title: state.state || 'Unmapped state',
     subtitle: null,
     riskLevel: riskTone,
     riskLabel: severityLabel,
-    rows: getRows(state)
+    rows: variant === 'compact' ? getCompactRows(rows, false) : rows
   };
 }
 
 export function MapInfoPanel(props) {
   const model = getPanelModel(props);
+  const isCompact = props.variant === 'compact';
 
   if (!model) {
     return (
-      <section className="map-info-panel empty">
+      <section className={`map-info-panel empty${isCompact ? ' compact' : ''}`}>
         <p>State Details</p>
         <strong>Hover over a state to view details</strong>
       </section>
@@ -92,7 +104,7 @@ export function MapInfoPanel(props) {
   }
 
   return (
-    <section className="map-info-panel">
+    <section className={`map-info-panel${isCompact ? ' compact' : ''}`}>
       <div className="map-info-heading">
         <div>
           <p>{model.eyebrow}</p>

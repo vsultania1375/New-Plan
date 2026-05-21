@@ -5,3 +5,28 @@ uploads/
 backend/.env
 frontend/.env
 npm-debug.log*
+# Local runtime logs
+*-dev.log
+*-dev.err.log
+
+# Local validation screenshots
+*-verification.png
+*-compact.png
+*-removed.png
+*-sticky.png
+service-dashboard-header.png
+theme-verification*.png
+pan-india-verification.png
+logo-header-verification.png
+report-tabs-verification.png
+report-tabs-icons-sticky.png
+dashboard-header-compact.png
+date-filters-removed.png
+
+# Large/local geometry source artifacts not suitable for normal Git pushes
+geo-source/india-pincode.geojson
+geo-source/*.kmz
+geo-source/opencity-kmz-extracted/
+
+# Imported mapping workbooks; keep templates in Git, imports local
+ServiceAreaPincodeMapping*.xlsx

@@ -23,8 +23,15 @@ The app ingests operational Excel exports and shows management where field opera
 - missing active tickets
 - tickets without visits
 - completed/sendback tickets still offline
-- state/POP/service-area risk
+- state / Service Area risk (POP = Service Area)
 - engineer ticket load
+
+## Business Terminology
+
+- POP and Service Area are the same operational unit in this dashboard.
+- Use `service_area_name` as the POP / Service Area display name.
+- Use `service_area_code` where available for mapping.
+- Do not treat POP as a separate hierarchy unless business introduces a new mapping later.
 
 ## Stack
 

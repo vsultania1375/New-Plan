@@ -2,6 +2,10 @@
 
 This guide is for the admin user maintaining the PAN India Operations Intelligence Dashboard.
 
+## Business Terminology: POP = Service Area
+
+POP and Service Area are the same operational unit in this dashboard. Use `service_area_name` as the POP / Service Area display name and `service_area_code` where available for mapping. Do not treat POP as a separate hierarchy unless business introduces a new mapping later.
+
 ## Daily Upload Order
 
 Use this order when you receive the full daily file set:
@@ -9,12 +13,15 @@ Use this order when you receive the full daily file set:
 1. `CustomerSiteMaster` — if a refreshed master file was provided
 2. `EmployeeMaster` — if a refreshed master file was provided
 3. `ServiceAreaMaster` — if a refreshed master file was provided
-4. `ViewTicket`
-5. `B2B Offline DD-MM-YYYY`
-6. `TicketActivity`
-7. `AttendanceReport`
+4. `StateHeadMapping` — occasional ownership file, if updated
+5. `ServiceAreaEngineerMapping` — occasional ownership file, if updated
+6. `ServiceAreaPincodeMapping` — occasional territory mapping file, if updated
+7. `ViewTicket`
+8. `B2B Offline DD-MM-YYYY`
+9. `TicketActivity`
+10. `AttendanceReport`
 
-The master files come first so the latest site, engineer, and service-area mappings are available before operational analytics refresh.
+The master and ownership mapping files come first so the latest site, engineer, Service Area, State Head, and Service Area engineer ownership data is available before operational analytics refresh.
 
 ## Daily vs Occasional Files
 
@@ -27,6 +34,9 @@ The master files come first so the latest site, engineer, and service-area mappi
 | `CustomerSiteMaster.xlsx` | Occasional / when refreshed | `customer_site_master` site master |
 | `EmployeeMaster.xlsx` | Occasional / when refreshed | `engineer_master` engineer master |
 | `ServiceAreaMaster.xlsx` | Occasional / when refreshed | `service_area_master` mapping master |
+| `StateHeadMapping.xlsx` | Occasional / when ownership changes | `state_head_mapping` official State Head ownership |
+| `ServiceAreaEngineerMapping.xlsx` | Occasional / when ownership changes | `service_area_engineer_mapping` official Service Area engineer ownership |
+| `ServiceAreaPincodeMapping.xlsx` | Occasional / when territory mapping changes | `service_area_pincode_mapping` pincode-to-Service Area mapping for future territory polygons |
 
 ## Dry Run First Rule
 
@@ -87,7 +97,7 @@ Expected behavior when re-uploading the same already-imported file:
 - `B2B Offline`
   - current offline site load
   - offline aging
-  - state / POP risk views
+  - state / Service Area risk views
 - `TicketActivity`
   - visit history
   - ticket-without-visit analysis
@@ -105,6 +115,20 @@ Expected behavior when re-uploading the same already-imported file:
   - engineer metadata
 - `ServiceAreaMaster`
   - service-area reference mapping
+- `StateHeadMapping`
+  - official State Head ownership for State Wise Report
+  - phone/email where provided
+- `ServiceAreaEngineerMapping`
+  - official active engineer owner for each Service Area
+  - backup engineer, manager, and assignment dates where provided
+- `ServiceAreaPincodeMapping`
+  - maps pincodes to Service Areas
+  - supports future Service Area territory polygon generation
+  - does **not** draw polygons until approved pincode boundary GeoJSON is added
+
+Ticket assignment is an operational signal only. It is not ownership. Upload the mapping files before expecting ownership fields to move from `Mapping Pending` to named owners.
+
+For `ServiceAreaPincodeMapping`, fix source-file issues before import. Bad rows are skipped, and pincode conflicts must be corrected in Excel rather than silently overwritten.
 
 ## How to Verify the Dashboard After Upload
 
@@ -115,7 +139,7 @@ After the upload sequence:
 3. Confirm the territory map loads
 4. Confirm the Operations Summary Panel is populated
 5. Hover a state and confirm the floating info card appears
-6. Click a state and confirm POP markers / POP ranking appear
+6. Click a state and confirm Service Area markers / Service Area ranking appear
 7. Check one or two key tables:
    - `Ticket But No Visit`
    - `Engineer Performance / Load`
@@ -149,7 +173,9 @@ After the upload sequence:
 - Do not edit or overwrite `.env`
 - Do not treat `ADMIN_UPLOAD_KEY` as production security
 - Do not manually alter business formulas while troubleshooting uploads
-- Do not invent POP polygons; current POP view is centroid-based until real geometry exists
+- Do not invent Service Area polygons; current Service Area marker view is centroid-based until real geometry exists
+- Do not expect `ServiceAreaPincodeMapping.xlsx` to draw polygons by itself; pincode boundary GeoJSON is still required
+- Do not treat ticket assignment as official State Head or Service Area ownership
 
 ## Example Daily Workflow
 

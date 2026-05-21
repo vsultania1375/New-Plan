@@ -36,7 +36,7 @@ export function RiskPopsPanel({ rows, engineers }) {
     <section className="panel">
       <div className="panel-heading">
         <div>
-          <p>Top Risk POPs</p>
+          <p>Top Risk Service Areas</p>
           <h2>Service Areas Needing Action</h2>
         </div>
       </div>
@@ -53,7 +53,7 @@ export function RiskPopsPanel({ rows, engineers }) {
                 <b className={`badge ${riskClass(score)}`}>{score >= 75 ? 'Critical' : score >= 45 ? 'Watch' : 'Stable'}</b>
               </div>
               <dl>
-                <dt>Engineer</dt><dd>{engineers[index]?.employee_name || 'Ticket mapped'}</dd>
+                <dt>Assignment Signal</dt><dd>{engineers[index]?.employee_name || 'Not official owner'}</dd>
                 <dt>{'>'}5 days</dt><dd>{formatNumber(row.offline_more_than_5_days)}</dd>
                 <dt>Avg TAT</dt><dd>{row.avg_ticket_aging || '-'}</dd>
               </dl>

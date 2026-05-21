@@ -12,12 +12,12 @@ export function IndiaMapPanel({ markers, selectedPop, onSelectPop }) {
     <section className="panel map-panel">
       <div className="panel-heading">
         <div>
-          <p>POP Territory</p>
+          <p>Service Area Territory</p>
           <h2>PAN India Ground Risk Map</h2>
         </div>
         <div className="layer-buttons">
           <span><Layers size={15} /> Layer</span>
-          {['POP Coverage', 'Offline Severity', 'Ticket Load', 'Engineer Productivity'].map((item) => (
+          {['Service Area Coverage', 'Offline Severity', 'Ticket Load', 'Engineer Productivity'].map((item) => (
             <button key={item} className={layer === item ? 'active' : ''} onClick={() => setLayer(item)}>{item}</button>
           ))}
         </div>

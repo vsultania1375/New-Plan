@@ -1547,3 +1547,1548 @@ Removed the remaining top-level State and Segment filter row from the dashboard 
 
 ## Next Recommended Step
 - If you want the codebase tidied further, do a later cleanup pass that removes unused legacy UI components only after you decide whether the global filters are gone permanently.
+
+---
+
+# Handover Entry — 2026-05-19 (stable checkpoint before Phase 1)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Created a stable checkpoint before starting Phase 1 State Wise Report + POP Profile expansion. No application code, backend logic, schema, formulas, or data were changed.
+
+## Current Stable Status
+- Frontend build passed with the existing Vite chunk-size warning only.
+- Backend JavaScript syntax check passed for all files under `backend/src`.
+- Backend health check returned OK with `dbConnected: true`.
+- Dashboard browser smoke test passed at `http://localhost:5173`.
+
+## API Results
+- `/api/health`: OK, database connected
+- `/api/analytics/overview`: OK
+  - total sites: 23,352
+  - total offline sites: 1,377
+  - PSU offline sites: 1,199
+  - PVT offline sites: 178
+  - offline >5 days: 651
+  - active engineer tickets: 5,050
+  - offline without active engineer ticket: 528
+  - active ticket without visit: 561
+  - active engineers: 211
+  - total POP/service-area markers: 249 in overview
+- `/api/analytics/map/states`: OK, 38 state rows returned
+- `/api/analytics/map/offline`: OK, 237 map markers returned
+
+## Database Counts
+- `offline_data_master`: 1,377
+- `view_ticket`: 31,771
+- `customer_site_master`: 23,352
+- `engineer_master`: 341
+- `service_area_master`: 251
+- `attendance_data`: 6,619
+- `visit_master`: 8,071
+- `holiday_master`: 0
+
+## Current Working Features
+- Browser tab branding: `Vprotect Service`
+- Dashboard header and report tabs render correctly
+- Full Report tab renders KPI cards, map, Operations Summary, risk panels, and tables
+- Placeholder report tabs remain available for State Wise / Engineer Wise / Customer Wise
+- Global State/Segment filter row remains removed
+- Top KPI cards render with helper notes for unavailable PSU/PVT denominator data
+- Territory map loads with percentage-based offline severity logic
+- Floating map info card remains the primary detail surface
+- Outside map side panel remains focused on legend / POP note / POP ranking
+- Admin Upload access popover opens successfully
+
+## Browser Smoke Test
+- Page title: `Vprotect Service`
+- Live status pill visible
+- Full Report tab visible and usable
+- KPI cards: 6 rendered
+- Territory map card rendered
+- Operations Summary Panel rendered
+- Admin Upload popover opened and password field rendered
+- State Wise placeholder tab opened successfully
+- Returning to Full Report restored KPI cards
+- No application console errors observed
+
+## Pending / Known Notes
+- Vite still reports a chunk-size warning after build; this is not a blocker.
+- Root-level local logs and verification screenshots remain uncommitted local artifacts from prior validation runs.
+- True POP ownership, state-head ownership, recurrence, and trend intelligence are not yet implemented.
+
+## Next Phase
+Phase 1 should focus on:
+- State Wise Report as an accountability page
+- POP Profile as the operating profile for each service area / POP
+- owner visibility: State Head, active POP engineer, manager/contact where available
+- current POP workload, never-visited sites, repeat-offline indicators, and 1M / 3M / 6M trend groundwork
+
+## Ready For Phase 1
+Yes — current build, APIs, dashboard shell, upload entry point, and database state are stable enough to start Phase 1 expansion.
+
+---
+
+# Handover Entry — 2026-05-19 (POP / Service Area terminology standardization)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Standardized the business terminology that POP and Service Area are the same operational unit in this dashboard. This was a documentation and visible UI wording pass only.
+
+## Business Terminology Clarification
+- POP = Service Area.
+- POP / Service Area display name should use `service_area_name`.
+- POP / Service Area code should use `service_area_code` where available.
+- POP should not be treated as a separate hierarchy unless business introduces a new grouping later.
+- Future official owner mapping file should be named `ServiceAreaEngineerMapping.xlsx`, not `POPEngineerMapping.xlsx`.
+
+## Files Changed
+- `AGENTS.md`
+- `GUARDRAILS.md`
+- `ARCHITECTURE.md`
+- `Codex.md`
+- `DAILY_UPLOAD_GUIDE.md`
+- `RELEASE_CHECKLIST.md`
+- `frontend/src/App.jsx`
+- `frontend/src/components/IndiaMapPanel.jsx`
+- `frontend/src/components/LayerToggle.jsx`
+- `frontend/src/components/MapInfoPanel.jsx`
+- `frontend/src/components/OperationsSummaryPanel.jsx`
+- `frontend/src/components/PopRankingPanel.jsx`
+- `frontend/src/components/RiskPanels.jsx`
+- `frontend/src/components/ScopeSummaryCards.jsx`
+- `frontend/src/components/SelectedPopInsight.jsx`
+- `frontend/src/components/StateTooltipCard.jsx`
+- `PROJECT_HANDOVER.md`
+
+## UI Wording Changed
+- `POP markers` -> `Service Area markers`
+- `Total POPs` / `Total POP Locations` -> `Total Service Areas`
+- `POP / Service Area Detail` -> `Service Area Detail`
+- table column `POP` -> `Service Area`
+- selected map card eyebrow `Selected POP` -> `Selected Service Area`
+- `POP Ranking` / panel wording -> `Service Area Ranking`
+- risk panel wording -> `Top Risk Service Areas`
+
+## Backend / API Impact
+- No backend logic changed.
+- No database schema changed.
+- Existing API field names such as `total_pops` and internal frontend state names such as `selectedPop` remain unchanged for compatibility.
+- New future APIs should prefer `service-area-*` naming unless compatibility requires existing `pop` terminology.
+
+## Validation
+- `npm run build --prefix frontend` passed.
+- Browser smoke test via local Edge/Playwright passed at `http://localhost:5173`.
+- Verified page title `Vprotect Service`, Live status, dashboard shell, and new Service Area labels render.
+- No application console errors observed in smoke test.
+- Existing Vite chunk-size warning remains non-blocking.
+
+## Remaining Notes
+- Historical handover entries still mention POP because they describe previous work at that time. This new entry supersedes prior terminology.
+- Component/file/internal names using `Pop` were intentionally left as-is to avoid risky renames.
+
+## Next Recommended Step
+Revise Phase 1 planning around:
+- State Wise Report foundation
+- Service Area Profile foundation
+- `ServiceAreaEngineerMapping.xlsx` upload support
+- never-visited / neglected-site intelligence
+- Engineer Wise Report foundation
+
+---
+
+# Handover Entry — 2026-05-19 (State Wise Report foundation)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Built the State Wise Report foundation using Service Area terminology. The blank State Wise tab now renders a live management table with state-level operational metrics and honest ownership status.
+
+## Backend API Added
+- Added `GET /api/analytics/state-wise`.
+- Added read-only service function `getStateWiseReport()` in `backend/src/services/analyticsService.js`.
+- Endpoint returns one row per state; current validation returned 38 rows.
+
+## Metrics Supported
+Each state row includes:
+- state
+- state head name/status
+- total sites
+- total offline
+- offline >3 days
+- offline percentage
+- offline >3 days percentage
+- offline without ticket count and percentage
+- ticket without visit count and percentage
+- active engineers
+- total service areas
+- worst service areas
+- best service areas
+- avg TAT
+- trend placeholders: 1M / 3M / 6M as `null`
+- risk label based on offline >3 days percentage
+
+## Ownership Handling
+- State Head is intentionally returned as `null` with `Mapping Pending`.
+- No official State Head was inferred from `engineer_master.reporting_manager` fields.
+- No official Service Area owner was inferred from ticket assignment.
+- This is ready to connect later to approved mapping files.
+
+## Service Area Terminology
+- UI uses Service Area wording, not separate POP wording.
+- The State Wise table includes `Service Areas` and `Worst Service Area` columns.
+- This follows the clarified business rule: POP = Service Area.
+
+## Frontend UI Added
+- Added `frontend/src/components/StateWiseReport.jsx`.
+- Replaced the State Wise placeholder tab with a live report component.
+- Added summary cards:
+  - States Covered
+  - Total Sites
+  - Total Offline
+  - Critical States
+  - Active Engineers
+  - Total Service Areas
+- Added searchable/sortable state table.
+- Row click highlights the selected state and shows a compact selected-state summary.
+
+## Files Changed
+- `backend/src/services/analyticsService.js`
+- `backend/src/routes/analyticsRoutes.js`
+- `frontend/src/api.js`
+- `frontend/src/App.jsx`
+- `frontend/src/components/StateWiseReport.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Validation Results
+- `npm run build --prefix frontend` passed.
+- Backend syntax check passed for all files under `backend/src`.
+- `GET /api/health` returned OK with `dbConnected: true`.
+- `GET /api/analytics/state-wise` returned 38 rows.
+- Browser smoke test passed:
+  - State Wise tab opens
+  - summary cards render: 6
+  - state table rows render: 38
+  - `Mapping Pending` appears for State Head ownership
+  - Service Area wording appears correctly
+  - Full Report tab still returns to KPI cards
+  - no application console errors observed
+- Vite chunk-size warning remains non-blocking.
+
+## Remaining Issues / Risks
+- State Head mapping is still missing; requires approved mapping file.
+- Service Area owner mapping is still missing; requires `ServiceAreaEngineerMapping.xlsx` in a later phase.
+- Trends are intentionally pending and returned as `null`.
+- Some Service Area/state relationships may reflect source master-data inconsistencies; no ownership or geography corrections were inferred.
+
+## Next Recommended Step
+Build the Service Area Profile foundation, then add `ServiceAreaEngineerMapping.xlsx` upload/support so official active engineer ownership can be shown without relying on ticket assignment.
+
+---
+
+# Handover Entry — 2026-05-19 (Service Area Profile foundation)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Built the Service Area Profile foundation for deeper management review after selecting a Service Area marker or ranking row from the territory map. Existing floating map card remains the quick-glance surface; the new profile appears below the Operations Summary when a Service Area is selected.
+
+## Backend API Added
+- Added `GET /api/analytics/service-area-profile?state=<state>&serviceArea=<serviceAreaName>`.
+- Added read-only service function `getServiceAreaProfile()` in `backend/src/services/analyticsService.js`.
+- No schema, business formula, or data lifecycle changes were made.
+
+## Profile Data Supported
+- Identity:
+  - `service_area_name`
+  - `service_area_code` where matched from `service_area_master`
+  - `state`
+- Ownership:
+  - State Head: `Mapping Pending`
+  - Active Engineer: `Mapping Pending`
+  - manager/phone/assignment date: `null`
+- Current Health:
+  - total sites
+  - offline sites
+  - offline percentage
+  - offline >3 days
+  - active tickets
+  - tickets without visit
+  - offline without ticket
+  - avg TAT
+- Engineer Quality:
+  - visits this month
+  - productive days
+  - avg visits/day
+  - active tickets
+  - zero-visit tickets
+  - repeat visit rate: `null`
+  - avg TAT
+- Site Coverage:
+  - never visited sites
+  - not visited 30 / 60 / 90 days
+- Site Lists:
+  - current offline sites
+  - never visited sites
+  - not visited 30 days
+
+## Ownership Handling
+- Official State Head is not inferred.
+- Official Service Area owner is not inferred from ticket assignment.
+- Ticket assignment language was softened in existing quick surfaces to avoid implying official ownership.
+- Real accountability still requires `ServiceAreaEngineerMapping.xlsx`.
+
+## Frontend UI Added
+- Added `frontend/src/components/ServiceAreaProfilePanel.jsx`.
+- Wired it into `TerritoryMapCard.jsx` so selecting a Service Area marker or ranking row opens the profile.
+- Back to PAN India clears selected state/service area and hides the profile.
+- Existing map card, Operations Summary, and ranking behavior remain intact.
+
+## Files Changed
+- `backend/src/services/analyticsService.js`
+- `backend/src/routes/analyticsRoutes.js`
+- `frontend/src/api.js`
+- `frontend/src/components/ServiceAreaProfilePanel.jsx`
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/components/PopTooltip.jsx`
+- `frontend/src/components/RiskPanels.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Validation Results
+- `npm run build --prefix frontend` passed.
+- Backend JavaScript syntax check passed for all files under `backend/src`.
+- API check passed for:
+  - `/api/analytics/service-area-profile?state=Uttar%20Pradesh&serviceArea=Ghaziabad`
+- Sample API result for Ghaziabad returned:
+  - total sites: 119
+  - offline sites: 9
+  - offline percentage: 7.6%
+  - active tickets: 18
+  - tickets without visit: 3
+  - ownership: Mapping Pending
+- Browser smoke test passed:
+  - Full Report opens
+  - state can be selected
+  - Service Area ranking appears
+  - Service Area row selection opens profile
+  - profile shows Ownership, Current Health, Site Coverage, and lists
+  - Back to PAN India clears profile
+  - State Wise tab still opens with 38 rows
+  - no application console errors observed
+- Vite chunk-size warning remains non-blocking.
+
+## Remaining Issues / Risks
+- Official Service Area owner and State Head are still unavailable until mapping files are provided.
+- Repeat visit rate is intentionally `null` until the recurrence formula is approved.
+- Site coverage metrics depend on available `visit_master` coverage and may look high where visit history is incomplete.
+- Service Area polygons remain out of scope; current map uses centroid markers only.
+- State Wise worst Service Area click-to-profile integration is still pending; map ranking/marker selection is complete.
+
+## Next Recommended Step
+Implement `ServiceAreaEngineerMapping.xlsx` upload support so the Service Area Profile can show official active engineer owner, backup engineer, manager, assignment dates, and accountability status.
+
+---
+
+# Handover Entry — 2026-05-19 (Ownership mapping upload support)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Applied the approved ownership mapping migration and added upload, dry-run, ingestion, and analytics support for official ownership mapping files:
+
+- `StateHeadMapping.xlsx`
+- `ServiceAreaEngineerMapping.xlsx`
+
+This enables State Wise Report and Service Area Profile ownership fields to use approved mapping files instead of operational ticket assignment.
+
+## Migration Applied
+Added two new tables to the live PostgreSQL database:
+
+- `state_head_mapping`
+- `service_area_engineer_mapping`
+
+No existing data was deleted, truncated, or reset.
+
+## Tables / Indexes Added
+- `state_head_mapping`
+  - generated `state_key`
+  - unique key on `state_key`
+  - index on `state_key`
+  - index on `active_status`
+- `service_area_engineer_mapping`
+  - generated `service_area_key`
+  - generated `state_key`
+  - unique partial index on `service_area_code` where present
+  - unique partial index on `service_area_key + state_key` when code is blank
+  - indexes on `state_key`, `service_area_key`, and `active_status`
+
+## Schema File Updated
+- Updated `database/schema.sql` so fresh setups include the new ownership tables and indexes.
+
+## Upload Detection / Admin UI
+- Added backend detection for State Head Mapping and Service Area Engineer Mapping files by filename and headers.
+- Added Admin Upload manual dropdown options:
+  - State Head Mapping
+  - Service Area Engineer Mapping
+- Both support existing Validate File / Upload flow and structured summaries.
+
+## Ingestion Behavior
+- `StateHeadMapping.xlsx` upserts by generated normalized `state_key`.
+- `ServiceAreaEngineerMapping.xlsx` upserts by `service_area_code` when available.
+- If `service_area_code` is blank, upserts by normalized `service_area_name + state`.
+- Old rows are not deleted.
+- Uploaded `active_status` is preserved as provided.
+- Analytics treats these values as active:
+  - `YES`
+  - `ACTIVE`
+  - `TRUE`
+  - case-insensitive variants
+
+## Analytics Integration
+- State Wise Report now reads active `state_head_mapping` rows.
+- If no mapping exists, State Head remains `Mapping Pending`.
+- Service Area Profile now reads active `service_area_engineer_mapping` rows.
+- If no mapping exists, Active Engineer remains `Mapping Pending`.
+- No ownership fallback is taken from ticket assignment or manager fields.
+
+## Documentation Updated
+- `DAILY_UPLOAD_GUIDE.md`
+  - ownership mapping files added as occasional uploads
+  - mapping files should be uploaded before expecting owner fields
+  - ticket assignment is not ownership
+- `RELEASE_CHECKLIST.md`
+  - ownership mapping checks added
+  - do-not-infer ownership rule added
+
+## Validation Results
+- Migration check passed:
+  - both tables exist
+  - all approved indexes exist
+- Backend JavaScript syntax check passed.
+- Frontend build passed with existing non-blocking Vite chunk-size warning.
+- Dry-run validation passed using temporary sample files only; no import was performed:
+  - `StateHeadMapping.xlsx` detected as `state_head_mapping`
+  - `ServiceAreaEngineerMapping.xlsx` detected as `service_area_engineer_mapping`
+  - required headers detected
+  - duplicate-in-file estimate reported
+- API checks passed:
+  - `/api/analytics/state-wise`
+  - `/api/analytics/service-area-profile?state=Uttar%20Pradesh&serviceArea=Ghaziabad`
+- Browser smoke test passed:
+  - Admin Upload dropdown contains both new options
+  - State Wise still shows `Mapping Pending` with no mapping uploaded
+  - Service Area Profile still shows `Ownership Mapping Pending` with no mapping uploaded
+  - no application console errors observed
+
+## Files Changed
+- `database/schema.sql`
+- `backend/src/routes/uploadRoutes.js`
+- `backend/src/services/ingestionService.js`
+- `backend/src/services/analyticsService.js`
+- `frontend/src/components/AdminAccess.jsx`
+- `frontend/src/components/StateWiseReport.jsx`
+- `frontend/src/components/ServiceAreaProfilePanel.jsx`
+- `frontend/src/styles.css`
+- `DAILY_UPLOAD_GUIDE.md`
+- `RELEASE_CHECKLIST.md`
+- `PROJECT_HANDOVER.md`
+
+## Remaining Issues / Risks
+- No real mapping files have been imported yet.
+- State Wise and Service Area Profile will keep showing `Mapping Pending` until approved mapping files are uploaded.
+- Need to prepare official Excel templates with exact expected columns.
+- Real imports were intentionally not performed with temporary validation files.
+
+## Next Recommended Step
+Create official templates:
+
+- `StateHeadMapping.xlsx`
+- `ServiceAreaEngineerMapping.xlsx`
+
+Then dry-run and import them through Admin Upload.
+
+---
+
+# Handover Entry — 2026-05-19 (Ownership mapping templates created)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Created official Excel template files and a guide for manually maintaining ownership mappings. No backend logic, frontend logic, schema, database data, or imports were changed.
+
+## Files Created
+- `StateHeadMapping_Template.xlsx`
+- `ServiceAreaEngineerMapping_Template.xlsx`
+- `OWNERSHIP_MAPPING_GUIDE.md`
+
+## State Head Template
+Columns:
+- `state`
+- `state_head_name`
+- `state_head_employee_id`
+- `phone`
+- `email`
+- `active_status`
+- `region`
+- `backup_state_head_name`
+- `backup_state_head_employee_id`
+- `effective_from`
+- `effective_to`
+
+## Service Area Engineer Template
+Columns:
+- `service_area_code`
+- `service_area_name`
+- `state`
+- `engineer_id`
+- `engineer_name`
+- `assignment_start_date`
+- `active_status`
+- `backup_engineer_id`
+- `backup_engineer_name`
+- `manager_employee_id`
+- `manager_name`
+- `effective_from`
+- `effective_to`
+
+## Template Formatting
+- Each workbook has `Sheet1` for data.
+- Each workbook has an `Instructions` sheet.
+- Header row is bold with light blue fill.
+- Header auto-filter enabled.
+- Column widths adjusted for readability.
+- Example rows use placeholder/example values only, not real owners.
+
+## Guide Content
+`OWNERSHIP_MAPPING_GUIDE.md` includes:
+- purpose of both files
+- upload order
+- required and optional fields
+- validation rules
+- common mistakes
+- dashboard behavior after upload
+- safety note that ticket assignment is not ownership
+
+## Validation
+- Confirmed both Excel files exist.
+- Confirmed both workbooks contain `Sheet1` and `Instructions` sheets.
+- Confirmed State Head template headers match ingestion requirements.
+- Confirmed Service Area Engineer template headers match ingestion requirements.
+- No upload/import was performed.
+
+## Next Step
+Manually fill approved ownership data into copies named:
+- `StateHeadMapping.xlsx`
+- `ServiceAreaEngineerMapping.xlsx`
+
+Then use Admin Upload → Validate File → Upload.
+
+---
+
+# Handover Entry — 2026-05-19 (final checkpoint after Service Area Profile and ownership setup)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Completed final checkpoint verification for the current dashboard state after Service Area Profile, State Wise Report, ownership mapping upload support, and ownership mapping templates. No code, schema, data, or imports were changed during this checkpoint; only validation and this handover entry were added.
+
+## Current Stable Status
+- Frontend build passes.
+- Backend JavaScript syntax check passes.
+- Backend API is reachable on `localhost:4000`.
+- Database is connected.
+- Frontend dashboard is reachable on `localhost:5173`.
+- Browser smoke test passed with no application console errors.
+
+## Features Completed Today
+- Standardized terminology: POP = Service Area.
+- Added State Wise Report foundation.
+- Added Service Area Profile foundation.
+- Added approved ownership mapping schema:
+  - `state_head_mapping`
+  - `service_area_engineer_mapping`
+- Added upload/dry-run/ingestion support for:
+  - `StateHeadMapping.xlsx`
+  - `ServiceAreaEngineerMapping.xlsx`
+- Added Admin Upload dropdown options for both ownership mapping files.
+- Added analytics integration so ownership fields use mapping tables only.
+- Created ownership mapping templates:
+  - `StateHeadMapping_Template.xlsx`
+  - `ServiceAreaEngineerMapping_Template.xlsx`
+- Created `OWNERSHIP_MAPPING_GUIDE.md`.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend syntax check: passed for all files under `backend/src`.
+- `/api/health`: OK, `dbConnected: true`.
+- `/api/analytics/overview`: OK.
+  - total sites: 23,352
+  - total offline sites: 1,377
+  - active engineers: 211
+  - total Service Areas: 249
+- `/api/analytics/state-wise`: OK, 38 rows returned.
+  - first state checked: Uttar Pradesh
+  - State Head status: Mapping Pending
+- `/api/analytics/service-area-profile?state=Uttar%20Pradesh&serviceArea=Ghaziabad`: OK.
+  - Service Area: Ghaziabad
+  - state: Uttar Pradesh
+  - total sites: 119
+  - ownership: Mapping Pending
+
+## Browser UI Status
+- Page title: `Vprotect Service`.
+- Live status visible.
+- Full Report shows 6 KPI cards.
+- Admin Upload opens successfully.
+- Admin Upload dropdown includes:
+  - State Head Mapping
+  - Service Area Engineer Mapping
+- State Wise tab opens successfully.
+- State Wise table renders 38 rows.
+- State Wise shows `Mapping Pending` because mapping files have not been uploaded.
+- Full Report map state drilldown works.
+- Service Area ranking appears after state selection.
+- Service Area Profile opens from selected Service Area.
+- Service Area Profile shows `Ownership Mapping Pending` because mapping files have not been uploaded.
+- Back to PAN India clears Service Area Profile.
+- No application console errors observed.
+
+## Ownership Mapping Status
+- Ownership mapping tables exist.
+- Ownership mapping upload support exists.
+- Ownership mapping templates exist.
+- No real ownership mapping files have been imported yet.
+- Current expected UI state remains `Mapping Pending` until real files are filled and uploaded.
+
+## Pending Work
+1. Fill approved ownership data into:
+   - `StateHeadMapping.xlsx`
+   - `ServiceAreaEngineerMapping.xlsx`
+2. Dry-run both files in Admin Upload.
+3. Import both files only after validation looks correct.
+4. Confirm State Wise Report shows State Head details.
+5. Confirm Service Area Profile shows active engineer, manager, backup engineer, and assignment details.
+
+## Next Development Phase
+Engineer Wise Report foundation.
+
+## Final Verdict
+Stable — ready for ownership data entry/import and then Engineer Wise Report foundation.
+
+---
+
+# Handover Entry - 2026-05-20 - State Banner Position + Transparency Refinement
+
+## Task Completed
+- Repositioned the in-map state/Service Area information banner so selected or hovered state cards are placed beside the territory bounds instead of using a fixed central-looking offset.
+- Made the in-map information banner lighter and semi-transparent while preserving readability.
+
+## Files Changed
+- `frontend/src/components/StateTerritoryMap.jsx`
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/styles.css`
+
+## Behavior Changed
+- State hover now passes state bounds along with the centroid anchor.
+- State selection now stores selected state bounds and passes them to the floating in-map card.
+- Floating card placement now uses state bounds, map container dimensions, available left/right space, and clamping to stay inside the visible map.
+- Service Area marker cards continue to use marker anchor placement without cursor-following behavior.
+- Back to PAN India clears stored selected/hovered bounds with the existing selected state/Service Area reset.
+
+## Styling Changed
+- Floating map info panel now uses `rgba(255, 255, 255, 0.91)`.
+- Added subtle border transparency, softer shadow, and backdrop blur.
+- Removed fixed CSS translate offset so placement is controlled by geometry rather than a central-looking transform.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed.
+- Browser smoke test on `http://localhost:5173`: passed.
+- Status pill showed `Live`.
+- Gujarat selection showed the in-map card inside the map, beside the selected territory area, with semi-transparent white background.
+- Additional state selection checks kept the card inside map bounds.
+- No application console errors observed during smoke test.
+
+## Remaining Issues / Notes
+- Placement is based on Leaflet bounds and clamped to the visible map container; very small or edge-heavy states may still be clamped close to the nearest available edge, which is expected.
+- No backend, schema, formula, or data changes were made.
+
+## Next Recommended Step
+- If desired, do a short visual tuning pass after management reviews the card position on a few large and edge states such as Gujarat, Rajasthan, Assam, and Tamil Nadu.
+
+---
+
+# Handover Entry - 2026-05-20 - State Banner Transparency Refinement
+
+## Task Completed
+- Refined the in-map selected/hovered state information banner transparency so the map remains visible beneath the card while text stays readable.
+
+## Files Changed
+- `frontend/src/styles.css`
+
+## Style Changed
+- Updated floating map info panel background from `rgba(255, 255, 255, 0.91)` to `rgba(255, 255, 255, 0.78)`.
+- Slightly strengthened the soft border to `rgba(125, 145, 172, 0.82)` for readability at the lower opacity.
+- Kept the existing blur and soft shadow.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed.
+- Browser smoke test on `http://localhost:5173`: passed.
+- Gujarat selection showed the in-map banner inside map bounds.
+- Computed card background verified as `rgba(255, 255, 255, 0.78)`.
+- Backdrop blur verified as active.
+- No application console errors observed.
+
+## Remaining Issues / Notes
+- This was a visual-only refinement; no data, backend, schema, formula, or map logic changes were made.
+
+## Next Recommended Step
+- Review the transparency visually with real map colors on a few states; if management wants even more glass effect, the next safe stop would be around `0.74`, but `0.78` is the better readability balance.
+
+---
+
+# Handover Entry - 2026-05-20 - State Banner Transparency Fine-Tune
+
+## Task Completed
+- Fine-tuned the in-map selected/hovered state information banner to be more transparent while keeping the text and risk badge readable.
+
+## Files Changed
+- `frontend/src/styles.css`
+
+## Style Changed
+- Updated floating map info panel background from `rgba(255, 255, 255, 0.78)` to `rgba(255, 255, 255, 0.70)`.
+- Softened/strengthened the translucent border balance to `rgba(117, 137, 166, 0.84)` for readability at the lower opacity.
+- Kept existing rounded corners, blur, and soft shadow.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed.
+- Browser smoke test on `http://localhost:5173`: passed.
+- Gujarat selection showed the in-map banner inside map bounds.
+- Computed card background verified as `rgba(255, 255, 255, 0.7)`.
+- Backdrop blur verified as active.
+- No application console errors observed.
+
+## Remaining Issues / Notes
+- Visual-only refinement; no backend, schema, formulas, data, placement, or selection logic changed.
+
+## Next Recommended Step
+- Keep this at `0.70` unless real dashboard review shows readability loss over darker severity colors.
+
+---
+
+# Handover Entry - 2026-05-20 - Offline Severity Color Scale Refinement
+
+## Task Completed
+- Updated Offline Severity map and legend colors to use clearly differentiated management colors instead of same-family brown/orange/red shades.
+
+## Files Changed
+- `frontend/src/components/territoryUtils.js`
+- `frontend/src/components/MapLegend.jsx`
+- `frontend/src/components/MapInfoPanel.jsx`
+- `frontend/src/components/StateWiseReport.jsx`
+- `frontend/src/styles.css`
+
+## Color Palette Used
+- Normal: `#2E7D32` muted green
+- Warning: `#D6A100` professional amber/yellow
+- High: `#E67E22` orange
+- Critical: `#C0392B` muted red
+
+## Behavior Changed
+- Offline Severity state polygon fills now use the new green/amber/orange/red palette while keeping the existing percentage thresholds unchanged.
+- Offline Severity legend now renders four color segments to match Normal, Warning, High, and Critical.
+- State risk badges can now visually distinguish `High` from `Warning` where offline severity labels are displayed.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed.
+- Backend JavaScript syntax check: passed.
+- Browser smoke test on `http://localhost:5173`: passed.
+- Offline Severity legend colors verified in browser as green, amber, orange, red.
+- State polygon fill colors verified to include the same four severity colors.
+- No application console errors observed.
+
+## Remaining Issues / Notes
+- Percentage thresholds were not changed:
+  - Normal: 0-2%
+  - Warning: >2-5%
+  - High: >5-10%
+  - Critical: >10%
+- No backend, schema, formula, data, selection, or Service Area logic changes were made.
+
+## Next Recommended Step
+- Review the map visually with management to confirm the new severity palette reads instantly across common states and selected-state opacity.
+
+---
+
+# Handover Entry - 2026-05-20 - Service Area Pincode Mapping Upload Support
+
+## Task Completed
+- Applied approved `service_area_pincode_mapping` schema for pincode-to-Service Area mapping.
+- Added backend upload detection, dry-run validation, and conservative import support for `ServiceAreaPincodeMapping.xlsx`.
+- Added Admin Upload dropdown option for `Service Area Pincode Mapping`.
+- Updated daily/release docs to clarify this is an occasional mapping file for future Service Area territory polygons.
+
+## Files Changed
+- `database/schema.sql`
+- `backend/src/routes/uploadRoutes.js`
+- `backend/src/services/ingestionService.js`
+- `frontend/src/components/AdminAccess.jsx`
+- `DAILY_UPLOAD_GUIDE.md`
+- `RELEASE_CHECKLIST.md`
+- `PROJECT_HANDOVER.md`
+
+## Table / Indexes Added
+- Table: `service_area_pincode_mapping`
+- Indexes:
+  - `idx_sa_pincode_mapping_active_pin`
+  - `idx_sa_pincode_mapping_pincode`
+  - `idx_sa_pincode_mapping_service_area_key`
+  - `idx_sa_pincode_mapping_state_key`
+  - `idx_sa_pincode_mapping_active`
+
+## Upload / Detection Behavior
+- Supports `ServiceAreaPincodeMapping.xlsx` by filename or headers.
+- Accepts uploaded header aliases:
+  - `Sercive Area Code` -> `service_area_code`
+  - `Service Area` -> `service_area_name`
+  - `State` -> `state`
+  - `Top City` -> `city`
+  - `Pin Code` -> `pincode`
+  - `Status` -> `active_status`
+- Also accepts cleaned snake_case headers.
+
+## Dry Run Validation
+- Dry run reports total rows, valid rows, failed rows, missing Service Area/state rows, state `0`, Service Area Code `0`, invalid pincodes, invalid statuses, duplicate pincodes with same Service Area, conflicting pincodes, distinct Service Areas, and distinct states.
+- Dry run does not modify the database.
+
+## Ingestion Rules
+- Bad rows are not imported.
+- Pincode is normalized to digits and must be exactly 6 digits.
+- Service Area and state are required; state must not be `0`.
+- Active status accepts `YES`, `NO`, `ACTIVE`, `INACTIVE`, `TRUE`, `FALSE`.
+- Duplicate pincode with same Service Area is skipped.
+- Conflicting active pincode mapping to a different Service Area is not overwritten silently.
+- `service_area_code = 0` is treated as blank and warned.
+
+## Validation Results
+- Migration check: table exists and indexes exist.
+- Backend JavaScript syntax check: passed.
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- API dry-run for `ServiceAreaPincodeMapping.xlsx`: passed without DB import.
+  - total rows: 7,912
+  - valid rows: 7,788
+  - failed rows: 119
+  - rows missing Service Area: 119
+  - rows missing state: 119
+  - invalid pincodes: 0
+  - duplicate pincodes with same Service Area: 5
+  - conflicting pincodes: 0
+  - distinct Service Areas: 247
+  - distinct states: 22
+- Admin Upload browser check: `Service Area Pincode Mapping` option is visible.
+- `service_area_pincode_mapping` row count remains 0 because import was not run.
+
+## Remaining Issues / Notes
+- The current mapping file still has 119 invalid rows with blank Service Area/state and should be cleaned before import.
+- This mapping does not draw Service Area polygons yet; approved pincode boundary GeoJSON is still required.
+- No business formulas, dashboard analytics formulas, or Service Area polygon logic were changed.
+
+## Next Recommended Step
+- Clean `ServiceAreaPincodeMapping.xlsx`, rerun Validate File, and import only after failed rows/conflicts are acceptable. After clean mapping is imported, the next build step is pincode GeoJSON integration for real Service Area territory boundaries.
+
+---
+
+# Handover Entry - 2026-05-20 - Territory Coverage Audit
+
+## Task Completed
+- Added read-only Territory Coverage Audit API and Full Report dashboard section.
+- Built the audit as a governance layer before any Service Area polygon rendering.
+- No district GeoJSON, pincode GeoJSON, Voronoi boundaries, centroid territories, or fake polygons were added.
+
+## Files Changed
+- `backend/src/services/analyticsService.js`
+- `backend/src/routes/analyticsRoutes.js`
+- `frontend/src/api.js`
+- `frontend/src/App.jsx`
+- `frontend/src/components/TerritoryCoverageAudit.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Backend API Added
+- `GET /api/analytics/territory-coverage-audit`
+
+## Metrics Included
+- Mapping rows and active mapping rows.
+- Distinct mapped pincodes and mapped Service Areas.
+- Site Service Areas with/without mapping.
+- Site pincode coverage.
+- Site pincodes missing from mapping.
+- Mapping pincodes without sites.
+- Duplicate/conflicting pincode counts.
+- Multi-state Service Area count.
+- Territory Readiness Score with transparent component scores.
+
+## Data Quality Panels Added
+- Service Areas without mapping.
+- Sites without pincode.
+- Site pincodes missing from mapping.
+- Pincode mapping conflicts.
+- State coverage table.
+
+## Current API Snapshot
+- `mapping_rows`: 0
+- `active_mapping_rows`: 0
+- `distinct_site_service_areas`: 249
+- `service_areas_without_mapping`: 249
+- `sites_total`: 23,352
+- `sites_with_pincode`: 23,276
+- `sites_without_pincode`: 76
+- `pincodes_with_sites`: 7,907
+- `site_pincodes_not_in_mapping`: 7,907
+- `conflicting_pincode_count`: 0
+- `territory_readiness_score`: 33
+
+## Limitations
+- `ServiceAreaPincodeMapping.xlsx` has not been imported yet, so mapping coverage is currently 0.
+- District data is not available yet; `multi_district_service_area_count` returns `null`.
+- No district or pincode GeoJSON is loaded.
+- No Service Area polygons are rendered.
+
+## Validation Results
+- Backend JavaScript syntax check: passed.
+- `GET /api/analytics/territory-coverage-audit`: passed.
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Browser smoke test: Full Report opens, Territory Coverage Audit renders, map works, State Wise tab works, Service Area Profile opens from selected Service Area, and no application console errors were observed.
+
+## Next Recommended Step
+- Clean and import `ServiceAreaPincodeMapping.xlsx`, rerun this audit, and review the readiness score before starting district GeoJSON feasibility.
+
+---
+
+# Handover Entry - 2026-05-20 - Service Area Pincode Mapping Import Stopped at Dry Run
+
+## Task Status
+- Confirmed real `ServiceAreaPincodeMapping.xlsx` exists and no `~$ServiceAreaPincodeMapping.xlsx` temp lock file was used.
+- Ran dry-run validation only.
+- Import was stopped because dry-run still reports failed rows.
+
+## Dry Run Result
+- detected file type: `service_area_pincode_mapping`
+- target table: `service_area_pincode_mapping`
+- total rows: 7,912
+- valid rows: 7,788
+- failed rows: 119
+- invalid pincodes: 0
+- duplicate pincodes with same Service Area: 5
+- conflicting pincodes: 0
+- distinct Service Areas: 247
+- distinct states: 22
+- rows missing Service Area: 119
+- rows missing state: 119
+- invalid active status: 0
+
+## Stop Reason
+- Stop condition triggered: `failed_rows > 0`.
+- The 119 failed rows have blank Service Area and blank state, even though their status values are `NO`.
+- No import was run.
+
+## Table Status
+- `service_area_pincode_mapping` row count remains 0.
+
+## Sample Bad Rows
+- Excel row 95: pincode `120017`, city `Gurugram`, status `NO`
+- Excel row 279: pincode `136033`, city `Kaithal`, status `NO`
+- Excel row 362: pincode `141413`, city `Ludhiana`, status `NO`
+- Excel row 796: pincode `194104`, city `Leh`, status `NO`
+- Excel row 1130: pincode `228151`, city `Kurebhar`, status `NO`
+
+## Next Step
+- Fix the 119 rows by either assigning approved Service Area/state values or removing them from the import file if they are intentionally inactive/unmapped.
+- Rerun Validate File and import only when failed rows and conflicting pincodes are 0.
+
+---
+
+# Handover Entry - 2026-05-20 - Cleaned Service Area Pincode Mapping Imported
+
+## Task Completed
+- Preserved original `ServiceAreaPincodeMapping.xlsx`.
+- Created `ServiceAreaPincodeMapping_Cleaned.xlsx` for safe import.
+- Moved invalid/unmapped rows and duplicate rows out of the main import sheet.
+- Validated and imported the cleaned mapping file.
+- Reran Territory Coverage Audit after import.
+
+## Cleaned Workbook Created
+- Main sheet: `Sheet1`
+- Review sheet: `Rows_To_Fix`
+- Review sheet: `Duplicate_Same_Service_Area`
+- Review sheet: `Conflicts`
+
+## Rows Moved
+- `Rows_To_Fix`: 119 rows
+  - Reason: missing Service Area and missing state, even though status is `NO`.
+- `Duplicate_Same_Service_Area`: 5 rows
+  - Reason: duplicate pincode mapped to same Service Area; first row kept in import sheet.
+- `Conflicts`: 0 rows
+
+## Dry Run Result For Cleaned File
+- detected file type: `service_area_pincode_mapping`
+- target table: `service_area_pincode_mapping`
+- total rows: 7,788
+- valid rows: 7,788
+- failed rows: 0
+- invalid pincodes: 0
+- duplicate same-Service-Area pincodes: 0
+- conflicting pincodes: 0
+- distinct Service Areas: 247
+- distinct states: 22
+
+## Import Result
+- total rows: 7,788
+- inserted rows: 7,788
+- updated rows: 0
+- skipped duplicates: 0
+- failed rows: 0
+- conflicting pincodes: 0
+- warnings: none
+
+## Table Count After Import
+- `service_area_pincode_mapping.total_rows`: 7,788
+- active rows: 7,788
+- distinct pincodes: 7,788
+- distinct Service Areas: 247
+
+## Territory Coverage Audit After Import
+- territory readiness score: 99/100
+- mapping rows: 7,788
+- active mapping rows: 7,788
+- distinct mapped pincodes: 7,788
+- distinct mapped Service Areas: 247
+- Service Areas with mapping: 247
+- Service Areas without mapping: 2
+- sites without pincode: 76
+- site pincodes not in mapping: 119
+- mapping pincodes without sites: 0
+- conflicting pincode count: 0
+- score explanation:
+  - service area mapping coverage: 99.2%
+  - site pincode coverage: 99.7%
+  - pincode match rate: 98.5%
+  - conflict-free score: 100%
+
+## Browser Validation
+- Full Report opens.
+- Territory Coverage Audit section renders with improved `99/100` score.
+- Audit cards show imported mapping data.
+- Territory map still works.
+- State Wise tab still works.
+- Service Area Profile still opens from selected Service Area.
+- No application console errors observed.
+
+## Files Created / Changed
+- Created `ServiceAreaPincodeMapping_Cleaned.xlsx`.
+- Updated `PROJECT_HANDOVER.md`.
+- Database table `service_area_pincode_mapping` imported with cleaned rows.
+
+## Remaining Issues / Notes
+- 119 rows remain in `Rows_To_Fix` for business review.
+- 2 site Service Areas still do not have mapping coverage.
+- 76 sites still have missing/invalid pincode in `customer_site_master`.
+- 119 site pincodes are not in the imported mapping.
+- No Service Area polygons, district GeoJSON, pincode GeoJSON, or fake geometry were added.
+
+## Next Recommended Step
+- Review the 2 unmapped Service Areas, 76 sites without pincode, and 119 site pincodes not in mapping. Then start District GeoJSON feasibility only after those remaining gaps are accepted or assigned owners.
+
+---
+
+# Handover Entry - 2026-05-20 - One-State Service Area Territory Polygon Prototype
+
+## Task Completed
+- Added a controlled one-state Service Area territory polygon prototype using the audited OpenCity pincode geometry.
+- Backend now serves selected-state Service Area territory GeoJSON only; the frontend does not load all-India pincode GeoJSON.
+- Centroid Service Area markers remain available as fallback.
+- UI labels territories as operational boundaries generated from pincode mapping, not legal GIS boundaries.
+
+## Files Changed
+- `backend/src/services/analyticsService.js`
+- `backend/src/routes/analyticsRoutes.js`
+- `frontend/src/api.js`
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/components/StateTerritoryMap.jsx`
+- `frontend/src/components/MapInfoPanel.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Backend API Added
+- `GET /api/analytics/territories/service-areas?state=<state>`
+- Reads `geo-source/india-pincodes-opencity.geojson` backend-side.
+- Caches OpenCity geometry in memory after first load.
+- Matches OpenCity `Pincode` to `service_area_pincode_mapping.pincode`.
+- Filters state using `service_area_pincode_mapping.state`; OpenCity `Circle` is not used as state.
+
+## Geometry Behavior
+- Geometry source: `opencity_pincode`.
+- Territory type: `operational_service_area`.
+- Pincode polygons are grouped into one MultiPolygon feature per Service Area.
+- True GIS dissolve is not applied yet, so internal pincode boundaries may remain.
+
+## Gujarat API Result
+- Status: 200
+- Response size: ~1.76 MB
+- Service Area features: 18
+- Mapped pincodes: 489
+- Matched pincodes: 453
+- Unmatched pincodes: 36
+- Match rate: 92.64%
+
+## Uttar Pradesh API Smoke Result
+- Status: 200
+- Response size: ~2.58 MB
+- Service Area features: 24
+- Mapped pincodes: 750
+- Matched pincodes: 702
+- Unmatched pincodes: 48
+- Match rate: 93.6%
+
+## Frontend Behavior
+- When a state is selected, the frontend requests selected-state Service Area territories.
+- Service Area polygons render inside the selected state flow.
+- Polygon hover highlights the territory and shows the in-map information card.
+- Polygon click selects the Service Area and opens the Service Area Profile path, same as marker/ranking selection.
+- Existing centroid markers remain visible and selectable.
+- Back to PAN India clears selected state, selected Service Area, and loaded polygon data.
+
+## Validation Results
+- Backend JavaScript syntax check: passed.
+- Frontend build: passed.
+- `GET /api/health`: passed.
+- `GET /api/analytics/overview`: passed.
+- `GET /api/analytics/territories/service-areas?state=Gujarat`: passed.
+- `GET /api/analytics/territories/service-areas?state=Uttar%20Pradesh`: passed.
+- Browser automation could not be completed because Playwright browser binaries are not installed locally; no package/browser install was run.
+
+## Limitations / Notes
+- This is a one-state prototype, not all-India polygon rendering.
+- Full OpenCity pincode GeoJSON is not loaded in the frontend.
+- OpenCity geometry lacks direct state/district fields.
+- 36 Gujarat mapped pincodes and 48 Uttar Pradesh mapped pincodes did not match OpenCity geometry.
+- No geometry simplification or cached dissolved output has been implemented yet.
+
+## Next Recommended Step
+- Run live browser verification on Gujarat: click Gujarat, confirm polygons render, hover/click polygon works, Service Area Profile opens, centroid markers remain usable, and no console errors appear. After that, consider geometry simplification or cached state-scoped output if render performance feels heavy.
+
+---
+
+# Handover Entry - 2026-05-20 - Service Area Territory Visual + Interaction Refinement
+
+## Task Completed
+- Refined the Service Area territory polygon prototype to behave more like operational territories and less like raw pincode patchwork.
+- Kept geometry strictly based on OpenCity pincode polygons and `service_area_pincode_mapping`.
+- Did not create fake gap fills, Voronoi areas, centroid buffers, or legal GIS boundaries.
+
+## Files Changed
+- `backend/src/services/analyticsService.js`
+- `frontend/src/components/LayerToggle.jsx`
+- `frontend/src/components/StateTerritoryMap.jsx`
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Backend Geometry Improvements
+- Confirmed one feature per Service Area is returned as a grouped `MultiPolygon`.
+- Added `geometry_status: pincode_grouped` and `geometry_mode: grouped_multipolygon` to returned features.
+- Added `geometry_mode` and `dissolve_available` to API summary.
+- Added unmatched pincode lists per Service Area and fallback marker metadata.
+- Added explicit limitations explaining that true GIS dissolve is not available in the current dependency stack.
+
+## Dissolve / Union Availability
+- No Turf/JSTS/Martinez geometry union package is installed.
+- PostGIS extension is not enabled.
+- Therefore true polygon dissolve/union was not implemented.
+- Current mode remains `grouped_multipolygon` with softened internal pincode strokes.
+
+## Blank Area Handling
+- Blank/unmatched areas are not filled artificially.
+- Unmatched pincodes remain transparent and rely on centroid marker fallback.
+- Coverage note shows matched vs mapped pincodes for selected state.
+
+## Frontend Styling / Interaction
+- Service Area territory stroke opacity/weight reduced so internal pincode boundaries are less dominant.
+- Hover increases stroke/fill emphasis and brings polygon to front.
+- Selected Service Area uses stronger stroke/fill.
+- Cursor pointer added for territory polygons.
+- Added a `Service Area Territories` layer toggle for selected states.
+- Service Area marker toggle remains available as fallback.
+
+## API Validation Results
+- Backend syntax check: passed.
+- `GET /api/analytics/territories/service-areas?state=Haryana`: passed; ~0.86 MB; 10 features; 195 mapped; 167 matched; 28 unmatched; 85.64%; mode `grouped_multipolygon`; dissolve false.
+- `GET /api/analytics/territories/service-areas?state=Gujarat`: passed; ~1.77 MB; 18 features; 489 mapped; 453 matched; 36 unmatched; 92.64%; mode `grouped_multipolygon`; dissolve false.
+- `GET /api/analytics/territories/service-areas?state=Uttar%20Pradesh`: passed; ~2.59 MB; 24 features; 750 mapped; 702 matched; 48 unmatched; 93.6%; mode `grouped_multipolygon`; dissolve false.
+
+## Browser Validation Results
+- Browser smoke test with local Chrome: dashboard opened without application console errors.
+- Haryana state selection loaded territory polygons; SVG interactive path count increased from 36 to 55.
+- Operational territory note and matched-pincode coverage note appeared.
+- Polygon click selected a Service Area and opened the Service Area Profile.
+
+## Remaining Limitations
+- Internal pincode boundaries are visually softened, not mathematically dissolved.
+- Some pincode geometry is missing from OpenCity for selected states.
+- No geometry simplification or cached dissolved state output exists yet.
+- The territories remain operational mapping outputs, not legal GIS boundaries.
+
+## Next Recommended Step
+- Review the live Haryana/Gujarat map visually with management. If the grouped look is acceptable, add state-scoped geometry caching/simplification next. If a truly clean outer boundary is mandatory, approve a GIS dissolve path using PostGIS or a vetted geometry union library.
+
+---
+
+# Handover Entry - 2026-05-20 - Service Area Territory UX Refinement
+
+## Task Completed
+- Polished selected-state Service Area territory UX so state severity no longer competes with Service Area severity after drilldown.
+- Made report navigation tabs translucent/glass-like while sticky over the dashboard.
+- Improved in-map Service Area banner placement so selected/hovered territory cards prefer side placement around the Service Area bounds and clamp inside the map.
+- Fixed Service Area polygon interaction layering so state polygons do not intercept Service Area hover/click events.
+
+## Files Changed
+- `frontend/src/components/StateTerritoryMap.jsx`
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Navigation Bar Transparency
+- `.report-tabs` now uses `rgba(255,255,255,0.72)` with backdrop blur and a softer border/shadow.
+- Active/inactive tabs remain readable on top of map content.
+
+## Service Area Banner Positioning
+- Floating map card now uses Service Area bounds to choose right/left placement first, then top/bottom fallback, with clamping inside map bounds.
+- Banner remains semi-transparent and does not follow the cursor.
+
+## Service Area Interaction
+- Added dedicated Leaflet panes:
+  - state territory pane behind
+  - Service Area territory pane above state layer
+  - Service Area marker pane above territory polygons
+- Service Area polygon hover now reliably highlights and shows the Service Area card.
+- Service Area polygon click selects the Service Area and opens the profile panel path.
+- Service Area ranking row can highlight on hover via `selectedPop || hoveredPop`.
+
+## State vs Service Area Color Behavior
+- PAN India mode keeps state severity coloring.
+- Selected-state mode mutes state fills/borders and makes Service Area territory colors the primary visual layer.
+- Service Area polygons continue using the green/amber/orange/red offline-percentage severity palette.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- `GET /api/health`: 200.
+- `GET /api/analytics/territories/service-areas?state=Haryana`: passed; 10 features; 195 mapped; 167 matched; 28 unmatched; 85.64% match rate.
+- Browser smoke test with local Chrome: dashboard opened, report tab background verified as `rgba(255, 255, 255, 0.72)`, state selection loaded Service Area territory paths, Service Area hover showed Service Area card, Service Area click selected the polygon and rendered the profile panel, no application console errors observed.
+
+## Remaining Issues / Notes
+- True GIS dissolve is still not implemented; territories remain grouped pincode MultiPolygons with softened styling.
+- Blank/unmatched geometry areas are still intentionally transparent; no fake territory fill was added.
+
+## Next Recommended Step
+- Live visual review on Haryana/Gujarat/UP with management. If accepted, move to state-scoped geometry simplification/caching; if clean outer boundaries are mandatory, approve a real GIS dissolve path.
+
+---
+
+# Handover Entry - 2026-05-20 - Report Tab Transparency Fine-Tune
+
+## Task Completed
+- Refined the sticky report tab navigation to be almost fully transparent over the dashboard/map area.
+- No backend, schema, business formulas, map logic, or tab behavior was changed.
+
+## Files Changed
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Transparency Value Updated
+- `.report-tabs` background changed from `rgba(255, 255, 255, 0.72)` to `rgba(255, 255, 255, 0.10)`.
+- Border softened to `rgba(148, 163, 184, 0.18)`.
+- Box shadow removed.
+- Backdrop blur remains `blur(8px)`.
+
+## Readability Adjustments
+- Inactive tab text darkened to `#253247`.
+- Inactive tab background reduced to `rgba(255,255,255,0.08)`.
+- Active tab background kept slightly stronger at `rgba(255,255,255,0.22)` with navy text/border so the current report remains identifiable.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- Browser smoke test with local Chrome: passed.
+  - `.report-tabs` computed background: `rgba(255, 255, 255, 0.1)`.
+  - backdrop filter: `blur(8px)`.
+  - box shadow: `none`.
+  - Full Report / State Wise tab switching worked.
+  - No application console errors observed.
+
+## Remaining Issues / Notes
+- At 0.10 opacity the bar is intentionally very subtle; if management finds labels too light over busy map tiles, increase only to 0.15.
+
+---
+
+# Handover Entry - 2026-05-20 - Report Navigation Full Transparency
+
+## Task Completed
+- Made the sticky report navigation container fully transparent over the dashboard/map.
+- No backend logic, schema, business formulas, map logic, report behavior, or dashboard data flow was changed.
+
+## Files Changed
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Transparency Changes
+- `.report-tabs` now uses `background: transparent`.
+- Removed container border and border-bottom.
+- Removed shadow.
+- Removed backdrop blur / frosted-glass effect.
+- Report tab buttons also use transparent backgrounds in default, hover, and active states.
+
+## Readability Adjustments
+- Tab text remains dark for readability.
+- Active tab remains identifiable through bold navy text and the active underline only.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- Browser smoke test with local Chrome: passed.
+  - `.report-tabs` computed background: `rgba(0, 0, 0, 0)`.
+  - border and border-bottom: `0px none`.
+  - box-shadow: `none`.
+  - backdrop-filter: `none`.
+  - Full Report / State Wise tab switching worked.
+  - No application console errors observed.
+
+## Remaining Issues / Notes
+- The navigation bar is now fully transparent by design. If readability becomes difficult over high-detail map areas, the next safest adjustment is text shadow or stronger active underline, not a container background.
+
+---
+
+# Handover Entry - 2026-05-20 - Report Navigation Low-Opacity Fix
+
+## Task Completed
+- Changed the report navigation from fully transparent to a low-opacity readable surface.
+- No backend logic, schema, business formulas, map logic, dashboard data, state selection, or Service Area selection behavior was changed.
+
+## Files Changed
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Opacity Value Used
+- `.report-tabs` background set to `rgba(255, 255, 255, 0.28)`.
+- Backdrop blur set to `blur(6px)`.
+- Border-bottom restored subtly at `rgba(148, 163, 184, 0.18)`.
+- Box shadow remains `none`.
+
+## Readability Fixes
+- Tab buttons remain background-free, so the bar stays light.
+- Tab text remains dark.
+- Active tab remains clear through navy text and underline.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- Browser smoke test with local Chrome: passed.
+  - `.report-tabs` computed background: `rgba(255, 255, 255, 0.28)`.
+  - backdrop filter: `blur(6px)`.
+  - box-shadow: `none`.
+  - Full Report / State Wise tab switching worked.
+  - No application JavaScript errors observed; browser reported transient external resource socket errors consistent with map tile/network loading.
+
+## Remaining Issues / Notes
+- If visual readability is still weak during live review, increase only to `rgba(255, 255, 255, 0.35)`.
+
+---
+
+# Handover Entry - 2026-05-20 - Fixed Bottom-Left Map Overlay Correction
+
+## Task Completed
+- Corrected the previous layout overreach and restored the map overlay requirement exactly.
+- The information banner and color legend now live inside the map at a fixed bottom-left position.
+- No backend logic, schema, formulas, Service Area territory calculations, ranking behavior, or dashboard structure was changed.
+
+## Files Changed
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## What Was Corrected
+- Removed the attempted map-first/right-rail restructuring from this pass.
+- Restored the standard two-column map + side panel layout.
+- Restored previous map size/grid behavior and report tab sizing.
+- Kept Service Area ranking in the side panel.
+
+## Info Banner Placement
+- Added fixed in-map overlay container: `.map-bottom-left-overlays`.
+- Info banner appears only when a state or Service Area is hovered/selected.
+- Info banner is fixed at bottom-left above the legend and no longer follows cursor or appears center/right.
+- Glass styling retained with translucent background and blur.
+
+## Legend Placement
+- `MapLegend` moved inside the map overlay, below the info banner.
+- Legend remains visible at bottom-left even when the info banner is hidden.
+- Legend uses matching glass styling and compact sizing.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- Browser smoke test with local Chrome: passed.
+  - Initial map: legend visible inside bottom-left; info banner hidden.
+  - State click: info banner appears fixed bottom-left above legend.
+  - Service Area hover: info banner updates in the same fixed bottom-left position.
+  - Service Area polygon click with forced SVG target: Service Area Profile opens.
+  - Service Area ranking row click: Service Area Profile opens.
+  - No `.map-floating-info-card` center/right banner was rendered.
+  - No application console errors observed.
+
+## Remaining Issues / Notes
+- SVG polygon click automation can be sensitive because some MultiPolygon bounding-box centers fall in holes; actual handler works and ranking selection remains reliable.
+- Any further broad layout or UX changes should be confirmed with the user first.
+
+---
+
+# Handover Entry - 2026-05-20 - Map Overlay Bounds + Compact Banner Fix
+
+## Task Completed
+- Fixed bottom-left map overlays so the info banner and legend stay inside the map boundary.
+- Removed the in-map information banner scrollbar by adding a compact `MapInfoPanel` variant for map overlays.
+- No backend logic, schema, formulas, map data logic, dashboard redesign, or ranking panel placement was changed.
+
+## Files Changed
+- `frontend/src/components/MapInfoPanel.jsx`
+- `frontend/src/components/MapLegend.jsx`
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Overlay Placement Fix
+- `.map-frame` now clips overlays with `position: relative` and `overflow: hidden`.
+- `.map-bottom-left-overlays` is fixed at `left: 14px; bottom: 14px` inside the map wrapper.
+- Overlay stack uses column layout: info banner above, legend below.
+- Child overlay cards can receive pointer events; the overlay container itself does not block the map.
+
+## Info Banner Scrollbar Fix
+- Added `variant="compact"` support to `MapInfoPanel`.
+- In-map compact panel uses `max-height: none` and `overflow: visible`.
+- Removed the internal scrollbar from the map overlay banner.
+
+## Compact Metrics Shown
+- State compact banner shows: Total Sites, Total Offline Sites, Offline >3 Days, Offline %, Open Tickets, Pending Tickets, Active Engineers, Avg TAT.
+- Service Area compact banner shows: Total Sites, Total Offline Sites, Offline %, Open Tickets, Pending Tickets, Avg TAT.
+- Completed tickets, closed tickets, and total Service Areas are hidden from the compact in-map banner and remain available in deeper panels.
+
+## Legend Placement
+- Legend remains always visible inside the map at bottom-left.
+- Legend uses compact glass styling via `map-overlay-legend`.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- Browser smoke test with local Chrome: passed.
+  - Initial map: legend inside bottom-left; info hidden.
+  - State click: info banner appears above legend and remains inside map bounds.
+  - Computed info panel style: `overflow: visible`, `max-height: none`.
+  - Info, legend, and overlay stack bounding boxes stayed inside the map boundary.
+  - Service Area ranking selection opened Service Area Profile and updated compact info banner.
+  - No application console errors observed.
+
+## Remaining Issues / Notes
+- Polygon click automation can be sensitive for MultiPolygon shapes if the click lands in a geometry hole; ranking selection validation passed and polygon handler remains unchanged.
+
+---
+
+# Handover Entry - 2026-05-20 - Territory Note Cards Removed from Right Map Panel
+
+## Task Completed
+- Removed the extra Service Area territory explanatory cards from the right-side map panel.
+- Preserved Service Area Ranking as the visible right-panel content when a state is selected.
+- No backend logic, schema, business formulas, Service Area territory API logic, polygon rendering, marker fallback, Service Area Profile, or map data logic was changed.
+
+## Files Changed
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `PROJECT_HANDOVER.md`
+
+## Removed UI
+- Removed the `Operational Service Area Territory — generated from pincode mapping` note card from the right panel.
+- Removed the `Service Area Territories` status card with matched pincodes, fallback count, geometry mode, and dissolve-pending note from the right panel.
+
+## Preserved UI / Behavior
+- Service Area Ranking remains in the right panel.
+- Service Area polygons remain rendered from the existing territory API.
+- Service Area marker fallback remains unchanged.
+- In-map legend and compact info banner remain unchanged.
+- Service Area Profile still opens from ranking selection.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with the existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- Browser smoke test with local Chrome: passed.
+  - Right panel no longer renders `.territory-note` or `.territory-geometry-status` cards.
+  - Service Area Ranking became the top visible right-panel content after selecting a state.
+  - Service Area ranking row selection opened the Service Area Profile.
+  - No application console errors observed.
+
+## Remaining Issues / Notes
+- None for this UI cleanup. Territory match/coverage data remains available from backend for future tooltip or diagnostics if needed.
+
+---
+
+# Handover Entry - 2026-05-21 - Map Side Gap Reduction
+
+## Task Completed
+- Reduced horizontal side gaps around the map section so the map uses available desktop width more efficiently.
+- Kept the existing map layout, Service Area polygon logic, marker fallback, overlays, ranking, and interaction behavior unchanged.
+- No backend logic, schema, business formulas, data lifecycle, or map territory calculation logic was changed.
+
+## Files Changed
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Page / Tab Padding Changes
+- Tightened report tab horizontal padding from `28px` to `12px` so the top navigation aligns with the wider map area without changing tab behavior.
+
+## Map / Card Padding Changes
+- Added a focused `.territory-map-card` override:
+  - side margins reduced to `12px`
+  - card padding reduced to `12px`
+- This was scoped to the map card only to avoid a broad dashboard redesign.
+
+## Map Width Changes
+- Reduced the Service Area Ranking side rail from `310px` to `260px`.
+- Reduced the map grid gap from `16px` to `10px`.
+- Reduced the territory side panel padding to `10px`.
+- On a 1440px desktop viewport, browser smoke measured:
+  - map card left gap: `12px`
+  - map card right gap: `12px`
+  - map frame width: about `1120px`
+  - no horizontal overflow
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- `GET /api/health`: passed with database connected.
+- Browser smoke test with local Chrome: passed.
+  - PAN India map rendered with reduced side gaps.
+  - State selection worked.
+  - Service Area Ranking remained available.
+  - Service Area ranking click opened Service Area Profile.
+  - Info banner and legend remained inside the map.
+  - No horizontal overflow detected.
+  - No application console errors observed.
+
+## Remaining Issues / Notes
+- Side gap reduction was intentionally scoped to spacing and widths only. No broader map redesign was made.

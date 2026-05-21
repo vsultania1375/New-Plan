@@ -8,7 +8,7 @@ export function PopTooltip({ marker }) {
       <strong>{marker.service_area_name}</strong>
       <span>{marker.state}</span>
       <dl>
-        <dt>Engineer</dt><dd>{marker.engineer_name || 'Mapped from tickets'}</dd>
+        <dt>Ticket Assignment</dt><dd>{marker.engineer_name || 'Not official owner'}</dd>
         <dt>Offline</dt><dd>{marker.offline_sites}</dd>
         <dt>{'>'}5 days</dt><dd>{marker.offline_more_than_5_days}</dd>
         <dt>Total sites</dt><dd>{marker.total_mapped_sites}</dd>

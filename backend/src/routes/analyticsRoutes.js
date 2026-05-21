@@ -7,9 +7,13 @@ import {
   getMapMarkers,
   getOfflineWithoutTicket,
   getOverview,
+  getServiceAreaProfile,
   getServiceAreaRisk,
+  getServiceAreaTerritories,
+  getStateWiseReport,
   getStateMapData,
   getStateRisk,
+  getTerritoryCoverageAudit,
   getTicketWithoutVisit
 } from '../services/analyticsService.js';
 
@@ -39,6 +43,14 @@ analyticsRoutes.get('/map/states', async (_req, res, next) => {
   }
 });
 
+analyticsRoutes.get('/state-wise', async (_req, res, next) => {
+  try {
+    res.json(await getStateWiseReport());
+  } catch (error) {
+    next(error);
+  }
+});
+
 analyticsRoutes.get('/risk/states', async (_req, res, next) => {
   try {
     res.json(await getStateRisk());
@@ -50,6 +62,33 @@ analyticsRoutes.get('/risk/states', async (_req, res, next) => {
 analyticsRoutes.get('/risk/service-areas', async (_req, res, next) => {
   try {
     res.json(await getServiceAreaRisk());
+  } catch (error) {
+    next(error);
+  }
+});
+
+analyticsRoutes.get('/service-area-profile', async (req, res, next) => {
+  try {
+    res.json(await getServiceAreaProfile({
+      state: req.query.state,
+      serviceArea: req.query.serviceArea
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+analyticsRoutes.get('/territory-coverage-audit', async (_req, res, next) => {
+  try {
+    res.json(await getTerritoryCoverageAudit());
+  } catch (error) {
+    next(error);
+  }
+});
+
+analyticsRoutes.get('/territories/service-areas', async (req, res, next) => {
+  try {
+    res.json(await getServiceAreaTerritories({ state: req.query.state }));
   } catch (error) {
     next(error);
   }
