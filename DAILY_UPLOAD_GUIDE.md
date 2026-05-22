@@ -103,7 +103,7 @@ Expected behavior when re-uploading the same already-imported file:
   - ticket-without-visit analysis
 - `AttendanceReport`
   - attendance records
-  - future attendance/productivity analysis
+  - Engineer Wise attendance, on-time/late counts, and productivity analysis
 - `CustomerSiteMaster`
   - site names
   - state mapping
@@ -121,12 +121,23 @@ Expected behavior when re-uploading the same already-imported file:
 - `ServiceAreaEngineerMapping`
   - official active engineer owner for each Service Area
   - backup engineer, manager, and assignment dates where provided
+  - primary ownership input for Engineer Wise Service Area assignment in the current schema
 - `ServiceAreaPincodeMapping`
   - maps pincodes to Service Areas
   - supports future Service Area territory polygon generation
   - does **not** draw polygons until approved pincode boundary GeoJSON is added
 
 Ticket assignment is an operational signal only. It is not ownership. Upload the mapping files before expecting ownership fields to move from `Mapping Pending` to named owners.
+
+Engineer Wise Report depends on:
+
+- `EmployeeMaster` for active engineers and Reporting Manager 2.
+- `ServiceAreaEngineerMapping` for current Service Area assignment.
+- `AttendanceReport` for attendance days, on-time days, and late days.
+- `TicketActivity` for productive days, visit timing, repeat visit gap, and recent visits.
+- `ViewTicket`, `B2B Offline`, and `CustomerSiteMaster` for Service Area ticket/offline/site load.
+
+The Engineer Wise `Operational Risk Score` is an operations risk signal only. Do not use it as an HR performance score.
 
 For `ServiceAreaPincodeMapping`, fix source-file issues before import. Bad rows are skipped, and pincode conflicts must be corrected in Excel rather than silently overwritten.
 

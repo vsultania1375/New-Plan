@@ -5,6 +5,7 @@ import { query } from '../db/pool.js';
 
 const activeStatuses = ['OPEN', 'PENDING', 'COMPLETED', 'SENTBACK', 'SENDBACK'];
 const activeOwnershipStatuses = ['YES', 'ACTIVE', 'TRUE'];
+const engineerActiveStatuses = ['YES'];
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const opencityPincodeGeojsonPath = path.resolve(__dirname, '../../../geo-source/india-pincodes-opencity.geojson');
@@ -526,6 +527,269 @@ function weightedReadinessScore(parts) {
   return weightTotal ? Math.round(weightedTotal / weightTotal) : null;
 }
 
+function cleanManagerName(valueToClean) {
+  const cleaned = String(valueToClean || '').trim();
+  if (!cleaned) return null;
+  return cleaned.split('(')[0].trim() || cleaned;
+}
+
+function roundNumber(value, digits = 1) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
+  const factor = 10 ** digits;
+  return Math.round(Number(value) * factor) / factor;
+}
+
+function riskFromEngineerScore(score) {
+  if (score === null || score === undefined) return 'Unknown';
+  if (score >= 80) return 'Good';
+  if (score >= 60) return 'Warning';
+  return 'Critical';
+}
+
+function engineerScoreBreakdown(row) {
+  const offlinePercentage = Number(row.offline_percentage || 0);
+  const openTickets = Number(row.open_tickets_in_service_area || 0);
+  const pendingTickets = Number(row.pending_tickets_in_service_area || 0);
+  const zeroProductiveDays = Number(row.zero_productive_days || 0);
+  const lateAttendanceDays = Number(row.late_attendance_days || 0);
+  const offlinePenalty = Math.min(30, offlinePercentage * 2);
+  const openTicketPenalty = Math.min(20, openTickets / 5);
+  const pendingTicketPenalty = Math.min(15, pendingTickets / 3);
+  const zeroProductivePenalty = Math.min(20, zeroProductiveDays * 2);
+  const lateAttendancePenalty = Math.min(15, lateAttendanceDays);
+  const totalPenalty = offlinePenalty + openTicketPenalty + pendingTicketPenalty + zeroProductivePenalty + lateAttendancePenalty;
+  const score = Math.max(0, Math.min(100, Math.round(100 - totalPenalty)));
+
+  return {
+    score,
+    offline_penalty: roundNumber(offlinePenalty, 1),
+    open_ticket_penalty: roundNumber(openTicketPenalty, 1),
+    pending_ticket_penalty: roundNumber(pendingTicketPenalty, 1),
+    zero_productive_penalty: roundNumber(zeroProductivePenalty, 1),
+    late_attendance_penalty: roundNumber(lateAttendancePenalty, 1)
+  };
+}
+
+function normalizeEngineerRow(row) {
+  const attendanceDays = Number(row.attendance_days || 0);
+  const productiveDays = Number(row.productive_days || 0);
+  const totalSites = Number(row.total_sites_in_service_area || 0);
+  const offlineSites = Number(row.offline_sites_in_service_area || 0);
+  const totalVisits = Number(row.total_visits_last_30_days || 0);
+  const zeroProductiveDays = Math.max(0, attendanceDays - productiveDays);
+  const model = {
+    engineer_id: row.engineer_id,
+    engineer_name: row.engineer_name,
+    phone: row.phone,
+    email: row.email,
+    state: row.state,
+    service_area_code: row.service_area_code,
+    service_area_name: row.service_area_name,
+    manager_name: cleanManagerName(row.manager_name),
+    manager_source: row.manager_name ? 'Reporting Manager 2' : null,
+    attendance_days: attendanceDays,
+    on_time_attendance_days: Number(row.on_time_attendance_days || 0),
+    late_attendance_days: Number(row.late_attendance_days || 0),
+    productive_days: productiveDays,
+    zero_productive_days: zeroProductiveDays,
+    total_visits_last_30_days: totalVisits,
+    avg_visits_per_productive_day: productiveDays ? roundNumber(totalVisits / productiveDays, 1) : null,
+    repeat_visit_rate_days: row.repeat_visit_rate_days === null || row.repeat_visit_rate_days === undefined ? null : Number(row.repeat_visit_rate_days),
+    total_sites_in_service_area: totalSites,
+    offline_sites_in_service_area: offlineSites,
+    offline_percentage: totalSites ? roundNumber((offlineSites / totalSites) * 100, 1) : null,
+    open_tickets_in_service_area: Number(row.open_tickets_in_service_area || 0),
+    pending_tickets_in_service_area: Number(row.pending_tickets_in_service_area || 0),
+    ownership_source: row.ownership_source || null
+  };
+  const breakdown = engineerScoreBreakdown(model);
+  return {
+    ...model,
+    engineer_score: breakdown.score,
+    risk: riskFromEngineerScore(breakdown.score),
+    score_breakdown: breakdown
+  };
+}
+
+async function engineerActivityAnchorDate() {
+  const { rows } = await query(
+    `SELECT GREATEST(
+       COALESCE((SELECT MAX(visit_in_datetime)::date FROM visit_master), CURRENT_DATE),
+       COALESCE((SELECT MAX(attendance_date)::date FROM attendance_data), CURRENT_DATE)
+     ) AS anchor_date`
+  );
+  return rows[0]?.anchor_date;
+}
+
+async function loadEngineerWiseRows() {
+  const anchorDate = await engineerActivityAnchorDate();
+  const { rows } = await query(
+    `
+    WITH params AS (
+      SELECT $1::date AS anchor_date
+    ),
+    active_engineers AS (
+      SELECT
+        e.employee_id AS engineer_id,
+        e.employee_name AS engineer_name,
+        e.phone_no AS phone,
+        e.email_id AS email,
+        e.state AS engineer_state,
+        e.service_state,
+        e.reporting_manager_2 AS manager_name
+      FROM engineer_master e
+      WHERE UPPER(TRIM(e.designation)) = 'ENGINEER'
+        AND UPPER(TRIM(e.active_status)) = ANY($2)
+    ),
+    ownership AS (
+      SELECT DISTINCT ON (m.engineer_id)
+        m.engineer_id,
+        m.service_area_code,
+        m.service_area_name,
+        m.state,
+        'ServiceAreaEngineerMapping'::text AS ownership_source
+      FROM service_area_engineer_mapping m
+      WHERE UPPER(TRIM(m.active_status)) = ANY($3)
+        AND (m.effective_from IS NULL OR m.effective_from <= CURRENT_DATE)
+        AND (m.effective_to IS NULL OR m.effective_to >= CURRENT_DATE)
+      ORDER BY m.engineer_id, m.assignment_start_date DESC NULLS LAST, m.updated_at DESC NULLS LAST
+    ),
+    attendance_30 AS (
+      SELECT
+        a.employee_id,
+        COUNT(DISTINCT a.attendance_date::date) FILTER (
+          WHERE a.in_datetime IS NOT NULL OR UPPER(COALESCE(a.attendance_status_derived, '')) IN ('ONTIME', 'LATE')
+        )::int AS attendance_days,
+        COUNT(DISTINCT a.attendance_date::date) FILTER (
+          WHERE UPPER(COALESCE(a.attendance_status_derived, '')) = 'ONTIME'
+            OR (a.in_datetime IS NOT NULL AND a.in_datetime::time <= TIME '10:00')
+        )::int AS on_time_attendance_days,
+        COUNT(DISTINCT a.attendance_date::date) FILTER (
+          WHERE UPPER(COALESCE(a.attendance_status_derived, '')) = 'LATE'
+            OR (a.in_datetime IS NOT NULL AND a.in_datetime::time > TIME '10:00')
+        )::int AS late_attendance_days
+      FROM attendance_data a
+      CROSS JOIN params p
+      WHERE a.attendance_date::date BETWEEN p.anchor_date - INTERVAL '29 days' AND p.anchor_date
+      GROUP BY a.employee_id
+    ),
+    visits_30 AS (
+      SELECT
+        v.employee_id,
+        v.visit_in_datetime,
+        v.visit_in_datetime::date AS visit_date,
+        COALESCE(NULLIF(v.oracle_site_no, ''), NULLIF(v.cs_id, '')) AS site_key
+      FROM visit_master v
+      CROSS JOIN params p
+      WHERE v.visit_in_datetime IS NOT NULL
+        AND v.visit_in_datetime::date BETWEEN p.anchor_date - INTERVAL '29 days' AND p.anchor_date
+    ),
+    visit_metrics AS (
+      SELECT
+        employee_id,
+        COUNT(*)::int AS total_visits_last_30_days,
+        COUNT(DISTINCT visit_date)::int AS productive_days
+      FROM visits_30
+      GROUP BY employee_id
+    ),
+    repeat_gaps AS (
+      SELECT
+        employee_id,
+        EXTRACT(EPOCH FROM (visit_in_datetime - LAG(visit_in_datetime) OVER (
+          PARTITION BY employee_id, site_key
+          ORDER BY visit_in_datetime
+        ))) / 86400 AS gap_days
+      FROM visits_30
+      WHERE site_key IS NOT NULL
+    ),
+    repeat_metrics AS (
+      SELECT employee_id, ROUND(AVG(gap_days)::numeric, 1) AS repeat_visit_rate_days
+      FROM repeat_gaps
+      WHERE gap_days IS NOT NULL AND gap_days >= 0
+      GROUP BY employee_id
+    ),
+    site_metrics AS (
+      SELECT
+        UPPER(REGEXP_REPLACE(TRIM(service_area_name), '[^A-Za-z0-9]', '', 'g')) AS service_area_key,
+        UPPER(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(state), ''), 'UNKNOWN'), '[^A-Za-z0-9]', '', 'g')) AS state_key,
+        COUNT(DISTINCT oracle_site_no)::int AS total_sites_in_service_area
+      FROM customer_site_master
+      WHERE NULLIF(TRIM(service_area_name), '') IS NOT NULL
+      GROUP BY
+        UPPER(REGEXP_REPLACE(TRIM(service_area_name), '[^A-Za-z0-9]', '', 'g')),
+        UPPER(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(state), ''), 'UNKNOWN'), '[^A-Za-z0-9]', '', 'g'))
+    ),
+    latest_offline AS (
+      SELECT * FROM offline_data_master
+      WHERE data_date = (SELECT MAX(data_date) FROM offline_data_master)
+    ),
+    offline_metrics AS (
+      SELECT
+        UPPER(REGEXP_REPLACE(TRIM(s.service_area_name), '[^A-Za-z0-9]', '', 'g')) AS service_area_key,
+        UPPER(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(s.state), ''), 'UNKNOWN'), '[^A-Za-z0-9]', '', 'g')) AS state_key,
+        COUNT(DISTINCT o.cs_id) FILTER (WHERE o.segment = 'PSU' AND o.aging_days > 2)::int AS offline_sites_in_service_area
+      FROM latest_offline o
+      JOIN customer_site_master s ON s.cs_id = o.cs_id
+      WHERE NULLIF(TRIM(s.service_area_name), '') IS NOT NULL
+      GROUP BY
+        UPPER(REGEXP_REPLACE(TRIM(s.service_area_name), '[^A-Za-z0-9]', '', 'g')),
+        UPPER(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(s.state), ''), 'UNKNOWN'), '[^A-Za-z0-9]', '', 'g'))
+    ),
+    ticket_metrics AS (
+      SELECT
+        UPPER(REGEXP_REPLACE(TRIM(service_area_name), '[^A-Za-z0-9]', '', 'g')) AS service_area_key,
+        UPPER(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(state), ''), 'UNKNOWN'), '[^A-Za-z0-9]', '', 'g')) AS state_key,
+        COUNT(*) FILTER (WHERE ticket_status = 'OPEN')::int AS open_tickets_in_service_area,
+        COUNT(*) FILTER (WHERE ticket_status = 'PENDING')::int AS pending_tickets_in_service_area
+      FROM view_ticket
+      WHERE ticket_status IN ('OPEN', 'PENDING')
+        AND NULLIF(TRIM(service_area_name), '') IS NOT NULL
+      GROUP BY
+        UPPER(REGEXP_REPLACE(TRIM(service_area_name), '[^A-Za-z0-9]', '', 'g')),
+        UPPER(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(state), ''), 'UNKNOWN'), '[^A-Za-z0-9]', '', 'g'))
+    )
+    SELECT
+      ae.engineer_id,
+      ae.engineer_name,
+      ae.phone,
+      ae.email,
+      COALESCE(o.state, ae.service_state, ae.engineer_state) AS state,
+      o.service_area_code,
+      o.service_area_name,
+      ae.manager_name,
+      o.ownership_source,
+      COALESCE(a.attendance_days, 0)::int AS attendance_days,
+      COALESCE(a.on_time_attendance_days, 0)::int AS on_time_attendance_days,
+      COALESCE(a.late_attendance_days, 0)::int AS late_attendance_days,
+      COALESCE(vm.productive_days, 0)::int AS productive_days,
+      COALESCE(vm.total_visits_last_30_days, 0)::int AS total_visits_last_30_days,
+      rm.repeat_visit_rate_days,
+      COALESCE(sm.total_sites_in_service_area, 0)::int AS total_sites_in_service_area,
+      COALESCE(om.offline_sites_in_service_area, 0)::int AS offline_sites_in_service_area,
+      COALESCE(tm.open_tickets_in_service_area, 0)::int AS open_tickets_in_service_area,
+      COALESCE(tm.pending_tickets_in_service_area, 0)::int AS pending_tickets_in_service_area
+    FROM active_engineers ae
+    LEFT JOIN ownership o ON o.engineer_id = ae.engineer_id
+    LEFT JOIN attendance_30 a ON a.employee_id = ae.engineer_id
+    LEFT JOIN visit_metrics vm ON vm.employee_id = ae.engineer_id
+    LEFT JOIN repeat_metrics rm ON rm.employee_id = ae.engineer_id
+    LEFT JOIN site_metrics sm
+      ON sm.service_area_key = UPPER(REGEXP_REPLACE(COALESCE(o.service_area_name, ''), '[^A-Za-z0-9]', '', 'g'))
+     AND sm.state_key = UPPER(REGEXP_REPLACE(COALESCE(o.state, ''), '[^A-Za-z0-9]', '', 'g'))
+    LEFT JOIN offline_metrics om
+      ON om.service_area_key = UPPER(REGEXP_REPLACE(COALESCE(o.service_area_name, ''), '[^A-Za-z0-9]', '', 'g'))
+     AND om.state_key = UPPER(REGEXP_REPLACE(COALESCE(o.state, ''), '[^A-Za-z0-9]', '', 'g'))
+    LEFT JOIN ticket_metrics tm
+      ON tm.service_area_key = UPPER(REGEXP_REPLACE(COALESCE(o.service_area_name, ''), '[^A-Za-z0-9]', '', 'g'))
+     AND tm.state_key = UPPER(REGEXP_REPLACE(COALESCE(o.state, ''), '[^A-Za-z0-9]', '', 'g'))
+    ORDER BY ae.engineer_name
+    `,
+    [anchorDate, engineerActiveStatuses, activeOwnershipStatuses]
+  );
+
+  return rows.map(normalizeEngineerRow);
+}
+
 export async function getTerritoryCoverageAudit() {
   const baseCtes = `
     WITH active_mapping AS (
@@ -769,6 +1033,159 @@ export async function getTerritoryCoverageAudit() {
       'No Service Area polygons are rendered by this endpoint.',
       'Operational Service Area Territory should be generated only after mapping coverage is acceptable.'
     ]
+  };
+}
+
+export async function getEngineerWiseReport() {
+  return loadEngineerWiseRows();
+}
+
+export async function getEngineerWiseDetail(engineerId) {
+  const cleanedEngineerId = String(engineerId || '').trim();
+  if (!cleanedEngineerId) {
+    const error = new Error('engineerId path parameter is required');
+    error.status = 400;
+    throw error;
+  }
+
+  const [engineers, anchorDate] = await Promise.all([
+    loadEngineerWiseRows(),
+    engineerActivityAnchorDate()
+  ]);
+  const engineer = engineers.find((row) => row.engineer_id === cleanedEngineerId);
+  if (!engineer) {
+    const error = new Error('Engineer not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const [calendarResult, histogramResult, recentVisitsResult, ticketStatusResult] = await Promise.all([
+    query(
+      `
+      WITH params AS (
+        SELECT $2::date AS anchor_date
+      ),
+      days AS (
+        SELECT generate_series((SELECT anchor_date FROM params) - INTERVAL '29 days', (SELECT anchor_date FROM params), INTERVAL '1 day')::date AS activity_date
+      ),
+      attendance AS (
+        SELECT
+          attendance_date::date AS activity_date,
+          MAX(attendance_status_raw) AS attendance_status_raw,
+          MAX(attendance_status_derived) AS attendance_status_derived,
+          MIN(in_datetime) AS first_punch_time
+        FROM attendance_data
+        WHERE employee_id = $1
+          AND attendance_date::date BETWEEN (SELECT anchor_date FROM params) - INTERVAL '29 days' AND (SELECT anchor_date FROM params)
+        GROUP BY attendance_date::date
+      ),
+      visits AS (
+        SELECT
+          visit_in_datetime::date AS activity_date,
+          COUNT(*)::int AS visit_count,
+          MIN(visit_in_datetime) AS first_visit_time,
+          MAX(visit_in_datetime) AS last_visit_time,
+          COUNT(DISTINCT ticket_id)::int AS tickets_touched
+        FROM visit_master
+        WHERE employee_id = $1
+          AND visit_in_datetime IS NOT NULL
+          AND visit_in_datetime::date BETWEEN (SELECT anchor_date FROM params) - INTERVAL '29 days' AND (SELECT anchor_date FROM params)
+        GROUP BY visit_in_datetime::date
+      )
+      SELECT
+        d.activity_date AS date,
+        CASE
+          WHEN a.activity_date IS NOT NULL AND (a.first_punch_time IS NOT NULL OR UPPER(COALESCE(a.attendance_status_derived, '')) IN ('ONTIME', 'LATE')) THEN 'Present'
+          WHEN a.activity_date IS NOT NULL THEN COALESCE(a.attendance_status_raw, a.attendance_status_derived, 'Attendance logged')
+          ELSE 'No attendance'
+        END AS attendance_status,
+        CASE
+          WHEN UPPER(COALESCE(a.attendance_status_derived, '')) = 'ONTIME' OR (a.first_punch_time IS NOT NULL AND a.first_punch_time::time <= TIME '10:00') THEN 'On Time'
+          WHEN UPPER(COALESCE(a.attendance_status_derived, '')) = 'LATE' OR (a.first_punch_time IS NOT NULL AND a.first_punch_time::time > TIME '10:00') THEN 'Late'
+          WHEN a.activity_date IS NULL THEN 'No attendance'
+          ELSE NULL
+        END AS on_time_status,
+        COALESCE(v.visit_count, 0)::int AS visit_count,
+        COALESCE(v.visit_count, 0) > 0 AS productive,
+        TO_CHAR(v.first_visit_time, 'HH24:MI') AS first_visit_time,
+        TO_CHAR(v.last_visit_time, 'HH24:MI') AS last_visit_time,
+        COALESCE(v.tickets_touched, 0)::int AS tickets_touched
+      FROM days d
+      LEFT JOIN attendance a ON a.activity_date = d.activity_date
+      LEFT JOIN visits v ON v.activity_date = d.activity_date
+      ORDER BY d.activity_date
+      `,
+      [cleanedEngineerId, anchorDate]
+    ),
+    query(
+      `
+      WITH hours AS (
+        SELECT generate_series(0, 23) AS hour
+      ),
+      visits AS (
+        SELECT EXTRACT(HOUR FROM visit_in_datetime)::int AS hour, COUNT(*)::int AS visits
+        FROM visit_master
+        WHERE employee_id = $1
+          AND visit_in_datetime IS NOT NULL
+          AND visit_in_datetime::date BETWEEN $2::date - INTERVAL '29 days' AND $2::date
+        GROUP BY EXTRACT(HOUR FROM visit_in_datetime)::int
+      )
+      SELECT LPAD(h.hour::text, 2, '0') AS hour, COALESCE(v.visits, 0)::int AS visits
+      FROM hours h
+      LEFT JOIN visits v ON v.hour = h.hour
+      ORDER BY h.hour
+      `,
+      [cleanedEngineerId, anchorDate]
+    ),
+    query(
+      `
+      SELECT
+        v.visit_in_datetime::date AS visit_date,
+        TO_CHAR(v.visit_in_datetime, 'HH24:MI') AS time_in,
+        TO_CHAR(v.visit_out_datetime, 'HH24:MI') AS time_out,
+        v.ticket_id,
+        v.cs_id,
+        COALESCE(s.oracle_site_name, t.oracle_site_name) AS site_name,
+        COALESCE(s.service_area_name, t.service_area_name) AS service_area_name
+      FROM visit_master v
+      LEFT JOIN customer_site_master s
+        ON (v.oracle_site_no IS NOT NULL AND v.oracle_site_no = s.oracle_site_no)
+        OR (v.cs_id IS NOT NULL AND v.cs_id = s.cs_id)
+      LEFT JOIN view_ticket t ON t.ticket_id = v.ticket_id
+      WHERE v.employee_id = $1
+      ORDER BY v.visit_in_datetime DESC NULLS LAST
+      LIMIT 30
+      `,
+      [cleanedEngineerId]
+    ),
+    query(
+      `
+      SELECT
+        COALESCE(ticket_status, 'Unknown') AS status,
+        COUNT(*)::int AS count
+      FROM view_ticket
+      WHERE UPPER(REGEXP_REPLACE(TRIM(COALESCE(service_area_name, '')), '[^A-Za-z0-9]', '', 'g')) =
+            UPPER(REGEXP_REPLACE(TRIM(COALESCE($1::text, '')), '[^A-Za-z0-9]', '', 'g'))
+        AND UPPER(REGEXP_REPLACE(TRIM(COALESCE(state, '')), '[^A-Za-z0-9]', '', 'g')) =
+            UPPER(REGEXP_REPLACE(TRIM(COALESCE($2::text, '')), '[^A-Za-z0-9]', '', 'g'))
+      GROUP BY COALESCE(ticket_status, 'Unknown')
+      ORDER BY count DESC
+      `,
+      [engineer.service_area_name || '', engineer.state || '']
+    )
+  ]);
+
+  return {
+    engineer,
+    last_30_days_calendar: calendarResult.rows,
+    visit_hour_histogram: histogramResult.rows,
+    recent_visits: recentVisitsResult.rows,
+    service_area_ticket_status: ticketStatusResult.rows.reduce((acc, row) => {
+      acc[row.status] = Number(row.count || 0);
+      return acc;
+    }, {}),
+    score_breakdown: engineer.score_breakdown,
+    anchor_date: anchorDate
   };
 }
 

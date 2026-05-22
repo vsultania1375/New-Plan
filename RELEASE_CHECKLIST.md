@@ -59,6 +59,7 @@ POP and Service Area are the same operational unit in this dashboard. Use `servi
 - [ ] Service Area ranking panel works
 - [ ] State Wise ownership shows mapped State Heads or `Mapping Pending`
 - [ ] Service Area Profile shows mapped active engineer owner or `Mapping Pending`
+- [ ] Engineer Wise tab renders live engineer rows, summary cards, calendar, visit timing histogram, and detail panel
 - [ ] State risk / Service Area risk sections render
 - [ ] Engineer load table renders
 - [ ] Ticket-without-visit table renders
@@ -82,6 +83,7 @@ POP and Service Area are the same operational unit in this dashboard. Use `servi
 - Real authentication is not implemented; the admin key is only an MVP local gate
 - Some analytics still have technical debt around direct `cs_id` joins
 - Full visit history is still evolving; some productivity metrics remain MVP-grade
+- Engineer Wise `Operational Risk Score` is an operations risk signal, not an HR performance score
 - Date/state filter wiring is not fully complete across all API queries
 - Service Area view is centroid-based only; real Service Area polygons are not yet available
 - `ServiceAreaPincodeMapping.xlsx` only maps pincodes to Service Areas; it does not draw polygons until approved pincode boundary GeoJSON is added

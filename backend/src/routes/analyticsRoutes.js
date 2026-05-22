@@ -4,6 +4,8 @@ import {
   getBreakdowns,
   getCompletedStillOffline,
   getEngineerLoad,
+  getEngineerWiseDetail,
+  getEngineerWiseReport,
   getMapMarkers,
   getOfflineWithoutTicket,
   getOverview,
@@ -48,6 +50,22 @@ analyticsRoutes.get('/map/states', async (_req, res, next) => {
 analyticsRoutes.get('/state-wise', async (_req, res, next) => {
   try {
     res.json(await getStateWiseReport());
+  } catch (error) {
+    next(error);
+  }
+});
+
+analyticsRoutes.get('/engineer-wise', async (_req, res, next) => {
+  try {
+    res.json(await getEngineerWiseReport());
+  } catch (error) {
+    next(error);
+  }
+});
+
+analyticsRoutes.get('/engineer-wise/:engineerId', async (req, res, next) => {
+  try {
+    res.json(await getEngineerWiseDetail(req.params.engineerId));
   } catch (error) {
     next(error);
   }

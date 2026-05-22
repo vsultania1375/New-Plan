@@ -8,6 +8,7 @@ import { DashboardStatus, DashboardStatusCard } from './components/DashboardStat
 import { DataTable } from './components/DataTable.jsx';
 import { DistributionChart } from './components/DistributionChart.jsx';
 import { EngineerProductivityCards } from './components/EngineerProductivityCards.jsx';
+import { EngineerWiseReport } from './components/EngineerWiseReport.jsx';
 import { formatNumber } from './components/format.js';
 import { GroundLagFunnel } from './components/GroundLagFunnel.jsx';
 import { KpiCard } from './components/KpiCard.jsx';
@@ -338,7 +339,7 @@ export function App() {
       )}
 
       {activeReport === 'state' && <StateWiseReport />}
-      {activeReport === 'engineer' && <ReportPlaceholder title="Engineer Wise Report" description="This report will be configured later." />}
+      {activeReport === 'engineer' && <EngineerWiseReport />}
       {activeReport === 'customer' && <ReportPlaceholder title="Customer Wise Report" description="This report will be configured later." />}
       {activeReport === 'dataHealth' && isAdmin && <TerritoryCoverageAudit />}
     </DashboardLayout>

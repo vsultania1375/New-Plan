@@ -66,6 +66,14 @@ export async function getStateWiseReport() {
   return request('/analytics/state-wise');
 }
 
+export async function getEngineerWiseReport() {
+  return request('/analytics/engineer-wise');
+}
+
+export async function getEngineerWiseDetail(engineerId) {
+  return request(`/analytics/engineer-wise/${encodeURIComponent(engineerId)}`);
+}
+
 export async function getServiceAreaProfile({ state, serviceArea }) {
   const params = new URLSearchParams();
   if (state) params.set('state', state);

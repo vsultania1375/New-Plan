@@ -195,6 +195,8 @@ Analytics:
 
 - `GET /api/analytics/overview`
 - `GET /api/analytics/map/offline`
+- `GET /api/analytics/engineer-wise`
+- `GET /api/analytics/engineer-wise/:engineerId`
 - `GET /api/analytics/risk/states`
 - `GET /api/analytics/risk/service-areas`
 - `GET /api/analytics/tables/offline-without-ticket`
@@ -203,6 +205,32 @@ Analytics:
 - `GET /api/analytics/tables/engineer-load`
 - `GET /api/analytics/breakdowns`
 - `GET /api/analytics/export/:name`
+
+## Engineer Wise Report
+
+The Engineer Wise Report is a management operations view, not an HR performance report. It uses the label `Operational Risk Score`.
+
+Current data sources:
+
+- `engineer_master`: active engineer identity, phone, email, state, and Reporting Manager 2.
+- `service_area_engineer_mapping`: current compatibility source for official Service Area assignment by `engineer_id`.
+- `service_area_master`: Service Area reference where codes are available.
+- `attendance_data`: attendance days, on-time days, and late days.
+- `visit_master`: productive days, visit count, recent visits, visit calendar, visit timing histogram, and repeat visit gaps.
+- `customer_site_master`: all sites in the selected Service Area. Do not filter `active_status`.
+- `offline_data_master`: current offline load for the Service Area using the locked PSU + aging > 2 rule.
+- `view_ticket`: open and pending ticket load in the Service Area.
+
+Definitions:
+
+- Productive day: any day where the engineer has at least one `visit_master` row.
+- Zero productive days: attendance days minus productive days.
+- Visit hour histogram: last-30-day visits grouped by `visit_in_datetime` hour.
+- Avg Repeat Visit Gap: average days between repeat visits to the same site by the same engineer.
+- Manager: Reporting Manager 2. Reporting Manager 1 is ignored.
+- Operational Risk Score: starts at 100 and subtracts penalties for Service Area offline percentage, open tickets, pending tickets, zero productive days, and late attendance.
+
+Compatibility note: the current `engineer_master` schema does not contain `service_area_code`. Until that column exists, Engineer Wise assignment uses the official `service_area_engineer_mapping` table by `engineer_id` and does not infer ownership from ticket assignment.
 
 ## Environment Variables
 
