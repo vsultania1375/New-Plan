@@ -1,18 +1,44 @@
 export const MAP_LAYERS = [
-  { key: 'coverage', label: 'Coverage', metric: 'total_sites', tone: 'blue' },
-  { key: 'offline', label: 'Offline Severity', metric: 'offline_gt_3_days', tone: 'red' },
-  { key: 'tickets', label: 'Ticket Load', metric: 'active_tickets', tone: 'orange' },
-  { key: 'productivity', label: 'Engineer Productivity', metric: 'visits_per_engineer', tone: 'green' }
+  { key: 'serviceHealth', label: 'Service Health', metric: 'health_score', tone: 'green' },
+  { key: 'openSiteIssues', label: 'Open Site Issues', metric: 'active_tickets', tone: 'red' },
+  { key: 'offlineFrequency', label: 'Offline Frequency', metric: 'offline_gt_3_days', tone: 'red' },
+  { key: 'repeatFailures', label: 'Repeat Failures', metric: 'offline_gt_3_days', tone: 'orange' },
+  { key: 'slaBreach', label: 'SLA Breach', metric: 'avg_tat', tone: 'red' },
+  { key: 'visitDelay', label: 'Visit Delay', metric: 'active_tickets', tone: 'orange' },
+  { key: 'vendorDelay', label: 'Vendor Delay', metric: 'active_tickets', tone: 'orange' },
+  { key: 'engineerActivity', label: 'Engineer Activity', metric: 'visits_per_engineer', tone: 'green' }
+];
+
+export const SERVICE_HEALTH_COLORS = {
+  good: '#2E7D32',
+  warning: '#D6A100',
+  high: '#E67E22',
+  critical: '#C0392B',
+  noData: '#CBD5E1'
+};
+
+export const SERVICE_HEALTH_LEGEND = [
+  { key: 'good', label: 'Good', range: '0–2%' },
+  { key: 'warning', label: 'Warning', range: '>2–5%' },
+  { key: 'high', label: 'High', range: '>5–10%' },
+  { key: 'critical', label: 'Critical', range: '>10%' }
 ];
 
 const STATE_ALIASES = {
   ANDAMANANDNICOBAR: 'ANDAMANANDNICOBARISLANDS',
   ANDAMANANDNICOBARISLAND: 'ANDAMANANDNICOBARISLANDS',
-  DELHI: 'NCTOFDELHI',
-  NATIONALCAPITALTERRITORYOFDELHI: 'NCTOFDELHI',
+  DELHI: 'DELHI',
+  NCTOFDELHI: 'DELHI',
+  NCTDELHI: 'DELHI',
+  NATIONALCAPITALTERRITORYOFDELHI: 'DELHI',
+  NEWDELHI: 'DELHI',
   ORISSA: 'ODISHA',
+  ODISA: 'ODISHA',
   PONDICHERRY: 'PUDUCHERRY',
+  KERLA: 'KERALA',
   JAMMUKASHMIR: 'JAMMUANDKASHMIR',
+  UTTARPARDESH: 'UTTARPRADESH',
+  DADRAANDNAGRAHAVELIANDDAMANANDDIU: 'DADRAANDNAGARHAVELIANDDAMANANDDIU',
   DADRAANDNAGARHAVELI: 'DADRAANDNAGARHAVELIANDDAMANANDDIU',
   DAMANANDDIU: 'DADRAANDNAGARHAVELIANDDAMANANDDIU'
 };
@@ -90,41 +116,55 @@ export function getOfflinePercentage(row) {
   return calculatePercentage(numerator, row.total_sites);
 }
 
+export function getServiceHealthSeverity(percent) {
+  if (percent === null || percent === undefined || !Number.isFinite(Number(percent))) return 'noData';
+  if (percent > 10) return 'critical';
+  if (percent > 5) return 'high';
+  if (percent > 2) return 'warning';
+  return 'good';
+}
+
 export function getOfflineSeverityColorByPercentage(percent) {
-  if (percent === null || percent === undefined || !Number.isFinite(Number(percent))) return '#e5e7eb';
-  if (percent > 10) return '#C0392B';
-  if (percent > 5) return '#E67E22';
-  if (percent > 2) return '#D6A100';
-  return '#2E7D32';
+  const severity = getServiceHealthSeverity(percent);
+  return SERVICE_HEALTH_COLORS[severity] || SERVICE_HEALTH_COLORS.noData;
 }
 
 export function getOfflineSeverityLabelByPercentage(percent) {
-  if (percent === null || percent === undefined || !Number.isFinite(Number(percent))) return 'No data';
-  if (percent > 10) return 'Critical';
-  if (percent > 5) return 'High';
-  if (percent > 2) return 'Warning';
-  return 'Normal';
+  const severity = getServiceHealthSeverity(percent);
+  if (severity === 'critical') return 'Critical';
+  if (severity === 'high') return 'High';
+  if (severity === 'warning') return 'Warning';
+  if (severity === 'good') return 'Normal';
+  return 'No data';
 }
 
 export function getMetricValue(row, layerKey) {
-  if (!row) return 0;
-  if (layerKey === 'coverage') return Number(row.total_sites || 0);
-  if (layerKey === 'offline') return getOfflinePercentage(row) ?? 0;
-  if (layerKey === 'tickets') return Number(row.active_tickets || 0);
-  if (layerKey === 'productivity') return Number(row.visits_per_engineer || 0);
+  if (!row) return null;
+  if (layerKey === 'serviceHealth') {
+    return getOfflinePercentage(row);
+  }
+  if (layerKey === 'openSiteIssues') return Number(row.active_tickets || 0);
+  if (layerKey === 'offlineFrequency') return getOfflinePercentage(row) ?? 0;
+  if (layerKey === 'repeatFailures') return Number(row.offline_gt_3_days || row.total_offline || 0);
+  if (layerKey === 'slaBreach') return Number(row.avg_tat || 0);
+  if (layerKey === 'visitDelay') return Number(row.active_tickets || 0);
+  if (layerKey === 'vendorDelay') return Number(row.pending_tickets || row.active_tickets || 0);
+  if (layerKey === 'engineerActivity') return Number(row.visits_per_engineer || 0);
   return 0;
 }
 
 export function getTerritoryFill(value, max, layerKey) {
-  if (layerKey === 'offline') return getOfflineSeverityColorByPercentage(value);
+  if (layerKey === 'serviceHealth' || layerKey === 'offlineFrequency') {
+    return getOfflineSeverityColorByPercentage(value);
+  }
   if (!value || !max) return '#eef2f7';
   const ratio = Math.min(1, Math.max(0.12, value / max));
-  if (layerKey === 'tickets') {
+  if (['openSiteIssues', 'repeatFailures', 'slaBreach', 'visitDelay', 'vendorDelay'].includes(layerKey)) {
     if (ratio > 0.72) return '#c2410c';
     if (ratio > 0.4) return '#f97316';
     return '#fed7aa';
   }
-  if (layerKey === 'productivity') {
+  if (layerKey === 'engineerActivity') {
     if (ratio > 0.72) return '#16a34a';
     if (ratio > 0.4) return '#22c55e';
     return '#bbf7d0';

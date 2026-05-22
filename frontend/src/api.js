@@ -83,6 +83,74 @@ export async function getServiceAreaTerritories(state) {
   return request(`/analytics/territories/service-areas?${params.toString()}`);
 }
 
+export async function getV3CommandCenter({ state, serviceArea } = {}) {
+  const params = new URLSearchParams();
+  if (state) params.set('state', state);
+  if (serviceArea) params.set('serviceArea', serviceArea);
+  return request(`/analytics/v3/command-center?${params.toString()}`);
+}
+
+export async function getV3SiteIntelligence(siteId) {
+  const params = new URLSearchParams();
+  if (siteId) params.set('siteId', siteId);
+  return request(`/analytics/v3/site-intelligence?${params.toString()}`);
+}
+
+export async function getV3DashboardSummary({ state, serviceArea, from, to } = {}) {
+  const params = new URLSearchParams();
+  if (state) params.set('state', state);
+  if (serviceArea) params.set('serviceArea', serviceArea);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/v3/dashboard/summary?${params.toString()}`);
+}
+
+export async function getV3StateHealth({ from, to } = {}) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/v3/dashboard/state-health?${params.toString()}`);
+}
+
+export async function getV3ServiceAreaHealth({ state, from, to } = {}) {
+  const params = new URLSearchParams();
+  if (state) params.set('state', state);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/v3/dashboard/service-area-health?${params.toString()}`);
+}
+
+export async function getV3OfflineTrend({ state, serviceArea, from, to } = {}) {
+  const params = new URLSearchParams();
+  if (state) params.set('state', state);
+  if (serviceArea) params.set('serviceArea', serviceArea);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/v3/dashboard/offline-trend?${params.toString()}`);
+}
+
+export async function getV3RepeatFailures({ state, serviceArea, from, to } = {}) {
+  const params = new URLSearchParams();
+  if (state) params.set('state', state);
+  if (serviceArea) params.set('serviceArea', serviceArea);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/v3/dashboard/repeat-failures?${params.toString()}`);
+}
+
+export async function getV3VisitPerformance({ state, serviceArea, from, to } = {}) {
+  const params = new URLSearchParams();
+  if (state) params.set('state', state);
+  if (serviceArea) params.set('serviceArea', serviceArea);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  return request(`/v3/dashboard/visit-performance?${params.toString()}`);
+}
+
+export async function getV3UploadsHistory() {
+  return request('/v3/uploads/history');
+}
+
 export async function uploadFile(file, type, adminKey, { dryRun = false } = {}) {
   const formData = new FormData();
   formData.append('file', file);

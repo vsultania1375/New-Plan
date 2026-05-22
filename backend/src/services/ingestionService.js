@@ -147,6 +147,35 @@ export async function ingestOffline(filePath, sourceFile = path.basename(filePat
       );
       insertedRows += 1;
     }
+    await client.query(
+      `INSERT INTO daily_offline_snapshots
+       (snapshot_date, site_id, cs_id, atm_id, oracle_site_no, site_name, state, service_area_name, pincode, issue_type, offline_status, source_file_name)
+       SELECT
+         o.data_date,
+         COALESCE(NULLIF(s.oracle_site_no, ''), o.cs_id),
+         o.cs_id,
+         COALESCE(NULLIF(s.atm_id, ''), NULLIF(o.atm_id_clean, '')),
+         s.oracle_site_no,
+         COALESCE(NULLIF(s.oracle_site_name, ''), o.site_name),
+         COALESCE(NULLIF(s.state, ''), o.state),
+         s.service_area_name,
+         s.pin_code,
+         o.descr,
+         'OFFLINE',
+         o.source_file
+       FROM offline_data_master o
+       LEFT JOIN customer_site_master s ON s.cs_id = o.cs_id
+       WHERE o.data_date = $1
+         AND o.source_file = $2
+         AND NOT EXISTS (
+           SELECT 1
+           FROM daily_offline_snapshots d
+           WHERE d.snapshot_date = o.data_date
+             AND d.cs_id = o.cs_id
+             AND COALESCE(d.source_file_name, '') = COALESCE(o.source_file, '')
+         )`,
+      [dataDate, sourceFile]
+    );
     return {
       detected_file_type: 'offline',
       target_table: 'offline_data_master',
@@ -162,8 +191,9 @@ export async function ingestOffline(filePath, sourceFile = path.basename(filePat
   });
 }
 
-export async function ingestCustomerSites(filePath) {
+export async function ingestCustomerSites(filePath, sourceFile = path.basename(filePath)) {
   const rows = readRows(filePath, 'Sheet1').filter((row) => text(value(row, 'Oracle Site Number')));
+  const uploadDate = new Date().toISOString().slice(0, 10);
   const mapped = rows.map((row) => [
     text(value(row, 'CS ID')),
     text(value(row, 'Oracle Site Number')),
@@ -200,6 +230,89 @@ export async function ingestCustomerSites(filePath) {
        updated_at = NOW()`,
       mapped
     );
+    await bulkInsert(
+      client,
+      `INSERT INTO service_requests
+       (ticket_id, site_id, cs_id, atm_id, state, service_area_name, issue_type, priority, status, open_date, pending_date, complete_date, assigned_to_type, engineer_name, vendor_name, state_manager, sla_due_date, last_remark, last_updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
+       ON CONFLICT (ticket_id) DO UPDATE SET
+       site_id = EXCLUDED.site_id,
+       cs_id = EXCLUDED.cs_id,
+       atm_id = EXCLUDED.atm_id,
+       state = EXCLUDED.state,
+       service_area_name = EXCLUDED.service_area_name,
+       issue_type = EXCLUDED.issue_type,
+       priority = EXCLUDED.priority,
+       status = EXCLUDED.status,
+       open_date = EXCLUDED.open_date,
+       pending_date = EXCLUDED.pending_date,
+       complete_date = EXCLUDED.complete_date,
+       assigned_to_type = EXCLUDED.assigned_to_type,
+       engineer_name = EXCLUDED.engineer_name,
+       vendor_name = EXCLUDED.vendor_name,
+       state_manager = EXCLUDED.state_manager,
+       sla_due_date = EXCLUDED.sla_due_date,
+       last_remark = EXCLUDED.last_remark,
+       last_updated_at = NOW()`,
+      mapped.map((row) => [
+        row[0],
+        row[2] || row[3],
+        row[3],
+        row[5],
+        row[7],
+        row[6],
+        row[12] || row[13],
+        row[10] && row[10] > 7 ? 'HIGH' : null,
+        row[8],
+        row[14],
+        ['PENDING', 'SENTBACK', 'SENDBACK'].includes(row[8]) ? row[23] || row[14] : null,
+        row[24],
+        row[16],
+        String(row[16] || '').toUpperCase() === 'ENGINEER' ? row[18] : null,
+        String(row[16] || '').toUpperCase() === 'VENDOR' ? row[17] : null,
+        row[20],
+        row[15],
+        row[9]
+      ])
+    );
+    await bulkInsert(
+      client,
+      `INSERT INTO site_master_snapshot
+       (upload_date, source_file_name, cs_id, oracle_site_no, oracle_site_name, atm_id, service_area_name, city, state, state_code, pin_code, latitude, longitude, active_status, raw)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)
+       ON CONFLICT (upload_date, oracle_site_no) DO UPDATE SET
+       source_file_name = EXCLUDED.source_file_name,
+       cs_id = EXCLUDED.cs_id,
+       oracle_site_name = EXCLUDED.oracle_site_name,
+       atm_id = EXCLUDED.atm_id,
+       service_area_name = EXCLUDED.service_area_name,
+       city = EXCLUDED.city,
+       state = EXCLUDED.state,
+       state_code = EXCLUDED.state_code,
+       pin_code = EXCLUDED.pin_code,
+       latitude = EXCLUDED.latitude,
+       longitude = EXCLUDED.longitude,
+       active_status = EXCLUDED.active_status,
+       raw = EXCLUDED.raw,
+       uploaded_at = NOW()`,
+      mapped.map((row) => [
+        uploadDate,
+        sourceFile,
+        row[0],
+        row[1],
+        row[2],
+        row[5],
+        row[6],
+        row[7],
+        row[8],
+        row[9],
+        row[10],
+        row[14],
+        row[15],
+        row[16],
+        row[17]
+      ])
+    );
     return {
       detected_file_type: 'sites',
       target_table: 'customer_site_master',
@@ -209,13 +322,15 @@ export async function ingestCustomerSites(filePath) {
       updated_rows: inserted,
       skipped_duplicates: 0,
       failed_rows: 0,
-      warnings: []
+      warnings: [],
+      data_date: uploadDate
     };
   });
 }
 
-export async function ingestTickets(filePath) {
+export async function ingestTickets(filePath, sourceFile = path.basename(filePath)) {
   const rows = readRows(filePath, 'Sheet1').filter((row) => text(value(row, 'Ticket ID')));
+  const snapshotDate = new Date().toISOString().slice(0, 10);
   const mapped = rows.map((row) => {
     const assigned = parseAssignedTo(value(row, 'Ticket Assigned To'));
     return [
@@ -259,6 +374,43 @@ export async function ingestTickets(filePath) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28::jsonb)`,
       mapped
     );
+    await bulkInsert(
+      client,
+      `INSERT INTO service_request_snapshot
+       (snapshot_date, source_file_name, ticket_id, oracle_site_name, oracle_site_no, cs_id, primary_customer_name, atm_id, service_area_name, state, ticket_status, ticket_status_reason, aging_days, total_visits, ticket_type, ticket_sub_type, create_date, planned_date, ticket_assigned_type, ticket_assigned_to, assigned_employee_name, assigned_employee_id, current_approver_name, last_visit_in_datetime, last_visit_out_datetime, last_submission_datetime, ticket_closed_datetime, cancelled_by_name, cancelled_datetime, raw)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30::jsonb)
+       ON CONFLICT (snapshot_date, ticket_id) DO UPDATE SET
+       source_file_name = EXCLUDED.source_file_name,
+       oracle_site_name = EXCLUDED.oracle_site_name,
+       oracle_site_no = EXCLUDED.oracle_site_no,
+       cs_id = EXCLUDED.cs_id,
+       primary_customer_name = EXCLUDED.primary_customer_name,
+       atm_id = EXCLUDED.atm_id,
+       service_area_name = EXCLUDED.service_area_name,
+       state = EXCLUDED.state,
+       ticket_status = EXCLUDED.ticket_status,
+       ticket_status_reason = EXCLUDED.ticket_status_reason,
+       aging_days = EXCLUDED.aging_days,
+       total_visits = EXCLUDED.total_visits,
+       ticket_type = EXCLUDED.ticket_type,
+       ticket_sub_type = EXCLUDED.ticket_sub_type,
+       create_date = EXCLUDED.create_date,
+       planned_date = EXCLUDED.planned_date,
+       ticket_assigned_type = EXCLUDED.ticket_assigned_type,
+       ticket_assigned_to = EXCLUDED.ticket_assigned_to,
+       assigned_employee_name = EXCLUDED.assigned_employee_name,
+       assigned_employee_id = EXCLUDED.assigned_employee_id,
+       current_approver_name = EXCLUDED.current_approver_name,
+       last_visit_in_datetime = EXCLUDED.last_visit_in_datetime,
+       last_visit_out_datetime = EXCLUDED.last_visit_out_datetime,
+       last_submission_datetime = EXCLUDED.last_submission_datetime,
+       ticket_closed_datetime = EXCLUDED.ticket_closed_datetime,
+       cancelled_by_name = EXCLUDED.cancelled_by_name,
+       cancelled_datetime = EXCLUDED.cancelled_datetime,
+       raw = EXCLUDED.raw,
+       uploaded_at = NOW()`,
+      mapped.map((row) => [snapshotDate, sourceFile, ...row])
+    );
     return {
       detected_file_type: 'tickets',
       target_table: 'view_ticket',
@@ -269,7 +421,9 @@ export async function ingestTickets(filePath) {
       skipped_duplicates: 0,
       failed_rows: 0,
       warnings: [],
-      mode: 'truncate_insert'
+      mode: 'truncate_insert',
+      snapshot_table: 'service_request_snapshot',
+      data_date: snapshotDate
     };
   });
 }
@@ -825,7 +979,8 @@ export async function ingestTicketActivity(filePath, sourceFile = path.basename(
       employeeId,
       visitIn,
       visitOut,
-      sourceFile
+      sourceFile,
+      text(value(row, 'Engineer Name'))
     ]);
   }
 
@@ -843,7 +998,36 @@ export async function ingestTicketActivity(filePath, sourceFile = path.basename(
         `INSERT INTO visit_master
          (visit_id, ticket_id, cs_id, oracle_site_no, employee_id, visit_in_datetime, visit_out_datetime, source_file)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        row
+        row.slice(0, 8)
+      );
+      await client.query(
+        `INSERT INTO service_visits
+         (visit_id, ticket_id, site_id, engineer_name, vendor_name, visit_date, visit_type, remark, proof_status, lat, lng)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ON CONFLICT (visit_id) DO UPDATE SET
+         ticket_id = EXCLUDED.ticket_id,
+         site_id = EXCLUDED.site_id,
+         engineer_name = EXCLUDED.engineer_name,
+         vendor_name = EXCLUDED.vendor_name,
+         visit_date = EXCLUDED.visit_date,
+         visit_type = EXCLUDED.visit_type,
+         remark = EXCLUDED.remark,
+         proof_status = EXCLUDED.proof_status,
+         lat = EXCLUDED.lat,
+         lng = EXCLUDED.lng`,
+        [
+          row[0],
+          row[1],
+          row[3] || row[2],
+          row[8],
+          null,
+          row[5],
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
       );
       insertedRows += 1;
     }

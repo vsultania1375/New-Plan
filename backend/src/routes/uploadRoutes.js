@@ -354,8 +354,8 @@ async function dryRunImport(type, filePath, originalName) {
 
 async function ingestByType(type, filePath, originalName) {
   if (type === 'offline') return ingestOffline(filePath, originalName);
-  if (type === 'tickets') return ingestTickets(filePath);
-  if (type === 'sites') return ingestCustomerSites(filePath);
+  if (type === 'tickets') return ingestTickets(filePath, originalName);
+  if (type === 'sites') return ingestCustomerSites(filePath, originalName);
   if (type === 'engineers') return ingestEngineers(filePath);
   if (type === 'serviceAreas') return ingestServiceAreas(filePath);
   if (type === 'stateHeadMapping') return ingestStateHeadMapping(filePath);
@@ -364,6 +364,55 @@ async function ingestByType(type, filePath, originalName) {
   if (type === 'attendance') return ingestAttendance(filePath, originalName);
   if (type === 'ticketActivity' || type === 'visit_master') return ingestTicketActivity(filePath, originalName);
   throw new Error(`Unsupported import type: ${type}`);
+}
+
+function uploadDateForResult(result) {
+  return result.data_date || new Date().toISOString().slice(0, 10);
+}
+
+async function recordUploadHistory(type, originalName, result) {
+  const summary = normalizeSummary(type, result);
+  const processedCount = Number(summary.inserted_rows || 0) + Number(summary.updated_rows || 0) + Number(summary.skipped_duplicates || 0);
+  const rejectedCount = Number(summary.failed_rows || 0);
+  const status = rejectedCount ? 'COMPLETED_WITH_ERRORS' : summary.warnings?.length ? 'COMPLETED_WITH_WARNINGS' : 'SUCCESS';
+  const uploadHistory = await query(
+    `INSERT INTO upload_history
+     (upload_date, source_file_name, record_count, records_count, processed_count, rejected_count, status, error_message, data_type, target_table, inserted_rows, updated_rows, skipped_duplicates, failed_rows, import_summary)
+     VALUES ($1,$2,$3,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
+     RETURNING upload_id, upload_date, source_file_name, uploaded_at, records_count, processed_count, rejected_count, status, error_message, data_type`,
+    [
+      uploadDateForResult(result),
+      originalName,
+      summary.total_rows,
+      processedCount,
+      rejectedCount,
+      status,
+      rejectedCount ? summary.message : null,
+      summary.detected_file_type || CANONICAL_TYPES[type] || type,
+      summary.target_table,
+      summary.inserted_rows,
+      summary.updated_rows,
+      summary.skipped_duplicates,
+      summary.failed_rows,
+      JSON.stringify(summary)
+    ]
+  );
+  return uploadHistory.rows[0];
+}
+
+async function attachUploadId(type, uploadHistory, sourceFileName, result) {
+  if (!uploadHistory?.upload_id) return;
+  const dataDate = uploadDateForResult(result);
+  const dataType = result.detected_file_type || CANONICAL_TYPES[type] || type;
+  if (dataType !== 'offline') return;
+  await query(
+    `UPDATE daily_offline_snapshots
+     SET upload_id = $1
+     WHERE snapshot_date = $2
+       AND source_file_name = $3
+       AND upload_id IS NULL`,
+    [uploadHistory.upload_id, dataDate, sourceFileName]
+  );
 }
 
 uploadRoutes.post('/', requireAdmin, upload.single('file'), async (req, res, next) => {
@@ -377,8 +426,10 @@ uploadRoutes.post('/', requireAdmin, upload.single('file'), async (req, res, nex
       return res.json(result);
     }
     const result = await ingestByType(type, req.file.path, req.file.originalname);
+    const uploadHistory = await recordUploadHistory(type, req.file.originalname, result);
+    await attachUploadId(type, uploadHistory, req.file.originalname, result);
     fs.unlink(req.file.path, () => {});
-    return res.json({ original_name: req.file.originalname, ...normalizeSummary(type, result) });
+    return res.json({ original_name: req.file.originalname, upload_history: uploadHistory, ...normalizeSummary(type, result) });
   } catch (error) {
     if (req.file?.path) fs.unlink(req.file.path, () => {});
     next(error);
@@ -394,7 +445,10 @@ uploadRoutes.post('/sample-folder', requireAdmin, async (_req, res, next) => {
       const filePath = path.join(root, file);
       const type = detectImportType(file, filePath);
       if (!type) continue;
-      results.push({ file, ...normalizeSummary(type, await ingestByType(type, filePath, file)) });
+      const result = await ingestByType(type, filePath, file);
+      const uploadHistory = await recordUploadHistory(type, file, result);
+      await attachUploadId(type, uploadHistory, file, result);
+      results.push({ file, upload_history: uploadHistory, ...normalizeSummary(type, result) });
     }
     res.json({ imported: results });
   } catch (error) {

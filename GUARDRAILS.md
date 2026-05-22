@@ -19,6 +19,7 @@ This project is the **PAN India Operations Intelligence Dashboard**. It ingests 
 - `attendance_data` is historical append-only.
 - `service_area_code` may be null.
 - Do not apply a site `active_status` filter yet.
+- Site denominator rule: use all sites in the selected scope. Do not filter site `active_status` yet. Any `active_sites` API field is compatibility naming only.
 - Show only active engineers in dashboard metrics:
   - `designation = 'Engineer'`
   - `active_status = 'YES'`

@@ -1,12 +1,16 @@
 import React from 'react';
-import { Activity, Layers, Map, MapPinned, MapPin, Ticket, Users } from 'lucide-react';
+import { Activity, AlertTriangle, Clock, Layers, MapPinned, MapPin, Repeat2, ShieldCheck, Ticket, Users, Wrench } from 'lucide-react';
 import { MAP_LAYERS } from './territoryUtils.js';
 
 const layerIcons = {
-  coverage: Map,
-  offline: Activity,
-  tickets: Ticket,
-  productivity: Users
+  serviceHealth: ShieldCheck,
+  openSiteIssues: Ticket,
+  offlineFrequency: Activity,
+  repeatFailures: Repeat2,
+  slaBreach: AlertTriangle,
+  visitDelay: Clock,
+  vendorDelay: Wrench,
+  engineerActivity: Users
 };
 
 export function LayerToggle({

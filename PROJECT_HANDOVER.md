@@ -3092,3 +3092,1043 @@ Stable — ready for ownership data entry/import and then Engineer Wise Report f
 
 ## Remaining Issues / Notes
 - Side gap reduction was intentionally scoped to spacing and widths only. No broader map redesign was made.
+
+---
+
+# Handover Entry - 2026-05-21 - Safe Folder Cleanup Execution
+
+## Task Completed
+- Executed the approved safe folder cleanup only.
+- Deleted approved duplicate/root/debug files that were not locked.
+- Created the requested archive folder structure.
+- Moved approved old screenshots into `archive/screenshots/`.
+- Did not touch source components, backend/frontend/database folders, active public assets, active GeoJSON, Excel source/upload files, templates, docs, node_modules, or business logic.
+
+## Deleted Files
+- `image.png`
+- `logo.jpeg`
+- `debug-dashboard.png`
+- `debug-dashboard-fixed.png`
+- `debug-dashboard-admin-visual.png`
+
+## Delete Skipped Due Active File Locks
+- `backend-dev.err.log` — locked by a running process.
+- `frontend-dev.err.log` — locked by a running process.
+
+## Folders Created
+- `archive/screenshots/`
+- `archive/logs/`
+- `archive/raw-data/`
+- `archive/old-geo/`
+- `archive/old-excel/`
+
+## Archived Screenshots
+Moved to `archive/screenshots/`:
+- `dashboard-header-cleanup.png`
+- `dashboard-header-compact.png`
+- `dashboard-reference-inspired.png`
+- `dashboard-ui-upgrade.png`
+- `date-filters-removed.png`
+- `logo-header-verification.png`
+- `pan-india-verification.png`
+- `phase1-territory-map.png`
+- `reference-dashboard.png`
+- `report-tabs-icons-sticky.png`
+- `report-tabs-verification.png`
+- `service-dashboard-header.png`
+- `theme-verification.png`
+- `theme-verification-2.png`
+
+## Log Archive Status
+- `backend-dev.log` and `frontend-dev.log` could not be moved because they are locked by running dev processes.
+- No processes were force-stopped.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- `/api/health`: passed with `dbConnected: true`.
+- Dashboard load check at `http://localhost:5173`: passed.
+- Browser smoke test with local Chrome: passed; title `Vprotect Service`, report tabs present, 6 KPI cards rendered, territory map rendered, no application console errors observed.
+
+## Remaining Cleanup Candidates
+- Locked runtime logs can be deleted or archived after stopping the dev processes.
+- Unused frontend component candidates remain untouched for a later source-specific review.
+- Large geo provenance/source files remain untouched as requested.
+- Original/cleaned ServiceAreaPincodeMapping workbooks remain untouched for a later old-excel/archive pass.
+
+---
+
+# Handover Entry - 2026-05-21 - Excel Data Folder Cleanup
+
+## Task Completed
+- Created a new root folder named `Excel data`.
+- Moved all root-level spreadsheet files into `Excel data` without renaming them.
+- Did not move source code, docs, geo files, package/config files, public assets, database files, or node_modules.
+
+## Folder Created
+- `Excel data/`
+
+## Files Moved
+- `AttendanceReport (30).xlsx`
+- `B2B Offline 13-05-2026.xlsx`
+- `CustomerSiteMaster (9).xlsx`
+- `EmployeeMaster (18).xlsx`
+- `ServiceAreaEngineerMapping_Template.xlsx`
+- `ServiceAreaMaster (3).xlsx`
+- `ServiceAreaPincodeMapping_Cleaned.xlsx`
+- `ServiceAreaPincodeMapping.xlsx`
+- `StateHeadMapping_Template.xlsx`
+- `TicketActivity (2).xlsx`
+- `ViewTicket (82).xlsx`
+
+## Files Skipped
+- No root `.xlsx`, `.xls`, or upload-data `.csv` files were skipped.
+
+## Root Spreadsheet Check
+- No root-level `.xlsx`, `.xls`, or `.csv` files remain after the move.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- `/api/health`: passed with `dbConnected: true`.
+- Dashboard load check at `http://localhost:5173`: passed.
+- Browser smoke test with local Chrome: passed; title `Vprotect Service`, report tabs present, 6 KPI cards rendered, territory map rendered, Admin Upload entry present, no application console errors observed.
+
+## Notes / Risks
+- Normal Admin Upload uses browser-selected files and is not affected by moving files into `Excel data`.
+- The backend `ingestSampleData.js` script and `/api/uploads/sample-folder` route historically scan the project root for sample Excel files. Since root Excel files were moved, those sample-folder flows may need a future documentation update or code/path adjustment if they are used again.
+
+---
+
+# Handover Entry - 2026-05-21 - Service Area Engineer Mapping Validation
+
+## Service Area Engineer Mapping Validation Report
+
+### Mapping Table Counts
+- `service_area_engineer_mapping`: 247 total rows.
+- `service_area_engineer_mapping`: 197 currently active/effective rows using active statuses `YES`, `ACTIVE`, `TRUE`.
+- Active normalized mapped Service Area keys: 197.
+
+### Active Mapping Coverage
+- Dashboard normalized Service Area/state keys from `customer_site_master`: 420.
+- API-style mapped Service Area/state keys, including `service_area_code` fallback through `service_area_master`: 316.
+- API-style unmapped Service Area/state keys: 104.
+- Display-level dashboard variants exist: 521 distinct displayed Service Area/state strings collapse to 420 normalized keys.
+
+### Duplicate / Conflict Check
+- Duplicate active Service Area mappings by normalized `service_area_key + state_key`: 0.
+- Duplicate active Service Area mappings by `service_area_code`: 0.
+- API-style duplicate active matches for dashboard Service Areas: 0.
+
+### Service Area Profile API Result
+- Checked mapped sample: `/api/analytics/service-area-profile?state=Uttar%20Pradesh&serviceArea=Agra%20A`.
+- API returned active engineer `Kanhiya Lal`, engineer ID `ADHVP170`, manager `Santosh Yadav`, manager ID `PSVP00486`, phone `8272868218`, and assignment start date `2025-11-29T18:30:00.000Z`.
+- Backup engineer was `null` for the checked mapped sample; no active dashboard-matched sample with backup engineer was found in the validation query.
+- Checked unmapped sample: `/api/analytics/service-area-profile?state=Chhattisgarh&serviceArea=Ambikapur`.
+- API correctly returned Active Engineer as `Mapping Pending` for the unmapped Service Area.
+
+### UI Ownership Result
+- Browser smoke test with local Chrome passed without application console errors.
+- Selecting `Uttar Pradesh` from the operations summary opened the Service Area ranking.
+- Selecting `Agra A` from the ranking opened the Service Area Profile with `Kanhiya Lal`, `Santosh Yadav`, phone, and assignment start date visible.
+- Admin Upload UI contains both `State Head Mapping` and `Service Area Engineer Mapping` options.
+- UI issue found: the Service Area Profile header still shows `Ownership Mapping Pending` even when an active engineer is mapped.
+- UI issue found: `active_engineer_id` is returned by the API but not displayed in the Service Area Profile ownership grid.
+
+### Unmapped Handling
+- `Ambikapur, Chhattisgarh` was validated as an unmapped Service Area.
+- API returned `active_engineer_status: Mapping Pending` and null engineer/manager/backup fields.
+
+### State Head Mapping Status
+- `state_head_mapping`: 0 total rows.
+- Active State Head rows: 0.
+- `/api/analytics/state-wise` returned 38 rows and correctly showed `Mapping Pending` for State Head ownership.
+- State Wise UI rendered 38 rows and showed State Head as `Mapping Pending`.
+
+### Issues Found
+- Service Area Profile ownership data is connected at DB/API level and ranking-selection UI level.
+- Service Area Profile top-right status badge is stale for mapped Service Areas because it always renders `Ownership Mapping Pending`.
+- Service Area Profile does not display the active engineer ID, even though the API returns it.
+- Map marker/polygon selection uses the same `handleClickPop` path as ranking selection in `TerritoryMapCard.jsx`; ranking selection was browser-validated, but direct map marker click was not separately exercised in this run.
+- No `Monitoring dashboard` string was found in the repo, so no rename to `Accountability dashboard` was applied during this validation.
+
+### Handover Updated
+- `PROJECT_HANDOVER.md` updated with this validation entry.
+
+### Final Verdict
+Needs Fix.
+
+The mapping is properly connected through the database and Service Area Profile API, and mapped ownership is visible when selecting from the Service Area ranking. Two UI follow-ups remain before calling it fully validated: update the mapped status badge and display the engineer ID in the ownership panel.
+
+---
+
+# Handover Entry - 2026-05-21 - Service Area Ownership UI Fix
+
+## Task Completed
+- Fixed the Service Area Profile ownership badge so mapped Service Areas no longer show `Ownership Mapping Pending`.
+- Added visible `Engineer ID` to the Service Area Profile ownership grid.
+- Kept the fix scoped to frontend display logic only.
+- Did not change database schema, upload logic, business formulas, or ownership matching logic.
+- Did not infer ownership from ticket assignment.
+
+## Files Changed
+- `frontend/src/components/ServiceAreaProfilePanel.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Badge Logic Fixed
+- Added frontend mapped-state detection using returned ownership fields:
+  - `ownership.active_engineer_name`
+  - `ownership.active_engineer_id`
+  - compatible fallbacks: `ownership.engineer_id`, `ownership.employee_id`
+  - `ownership.active_engineer_status` when it is not `Mapping Pending`
+- Mapped Service Areas now show `Ownership Mapped`.
+- Unmapped Service Areas still show `Ownership Mapping Pending`.
+- Added green success styling through `.ownership-mapped`.
+
+## Engineer ID Display
+- Added `Engineer ID` in the ownership grid near `Active Engineer`.
+- Uses `ownership.active_engineer_id` from the existing API response.
+- Falls back to `—` when missing.
+- Renamed `Engineer Manager` label to `Manager`.
+
+## Backend Impact
+- No backend code changed.
+- Existing `/api/analytics/service-area-profile` already returns `ownership.active_engineer_id`, so no API alias was needed.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing non-blocking Vite chunk-size warning.
+- Backend JavaScript syntax check: passed.
+- `/api/health`: passed with `dbConnected: true`.
+- Mapped API sample passed:
+  - `/api/analytics/service-area-profile?state=Uttar%20Pradesh&serviceArea=Agra%20A`
+  - returned `Kanhiya Lal`, `ADHVP170`, `Santosh Yadav`, phone, and assignment start date.
+- Unmapped API sample passed:
+  - `/api/analytics/service-area-profile?state=Chhattisgarh&serviceArea=Ambikapur`
+  - returned `active_engineer_status: Mapping Pending` and null engineer/manager fields.
+- Browser smoke with local Chrome passed:
+  - mapped `Agra A, Uttar Pradesh` shows `Ownership Mapped`
+  - mapped profile shows `Engineer ID` = `ADHVP170`
+  - manager and phone still visible
+  - unmapped `Ambikapur, Chhattisgarh` still shows `Ownership Mapping Pending`
+  - unmapped profile shows `Engineer ID` = `—`
+  - no application console errors observed in the component smoke test.
+
+## Remaining Mapping Coverage Notes
+- Current validation coverage remains:
+  - 247 total `service_area_engineer_mapping` rows.
+  - 197 active/effective mapping rows.
+  - 316 API-style mapped dashboard Service Area/state keys.
+  - 104 API-style unmapped dashboard Service Area/state keys.
+- `state_head_mapping` still has 0 rows, so State Wise correctly remains `Mapping Pending` for State Head ownership.
+
+---
+
+# Handover Entry - 2026-05-21 - Service Area Engineer Mapping Gaps Export
+
+## Task Completed
+- Created a manual correction workbook for Service Area Engineer mapping gaps.
+- Did not change code.
+- Did not change schema.
+- Did not import data.
+- Did not delete data.
+- Did not infer official ownership from ticket assignment.
+
+## File Created
+- `ServiceAreaEngineerMapping_Gaps.xlsx`
+
+## Workbook Sheets
+- `Mapping Gaps`
+- `Summary`
+
+## Mapping Gaps Columns
+- `state`
+- `service_area_name`
+- `service_area_code`
+- `site_count`
+- `offline_sites`
+- `active_tickets`
+- `current_assigned_engineers_from_tickets`
+- `suggested_reason`
+- `mapping_status`
+
+## Export Logic
+- Used active ownership statuses:
+  - `YES`
+  - `ACTIVE`
+  - `TRUE`
+- Used effective-date checks:
+  - `effective_from IS NULL OR effective_from <= CURRENT_DATE`
+  - `effective_to IS NULL OR effective_to >= CURRENT_DATE`
+- Treated ticket assigned engineers as reference only, not official owners.
+- Used non-empty `service_area_code` from `service_area_master` where available.
+
+## Export Results
+- Total unmapped keys exported: 96.
+- Total sites affected: 4,910.
+- Total offline sites affected: 291.
+
+## Top States By Unmapped Count
+- Tamil Nadu: 12 gaps, 908 sites, 38 offline sites.
+- Kerala: 11 gaps, 875 sites, 36 offline sites.
+- `#N/A`: 11 gaps, 12 sites, 0 offline sites.
+- Karnataka: 9 gaps, 927 sites, 35 offline sites.
+- Unknown: 6 gaps, 10 sites, 0 offline sites.
+- Maharashtra: 5 gaps, 157 sites, 17 offline sites.
+- Andhra Pradesh: 5 gaps, 110 sites, 7 offline sites.
+- Telangana: 5 gaps, 57 sites, 4 offline sites.
+- Delhi: 4 gaps, 267 sites, 19 offline sites.
+- Punjab: 3 gaps, 201 sites, 14 offline sites.
+
+## Notes
+- Previous validation listed 104 API-style unmapped keys. This export produced 96 because it selected non-empty `service_area_code` values from `service_area_master` where a code was available, avoiding blank-code ambiguity.
+- The workbook is for manual correction only and was not imported.
+- `mapping_status` is `Missing Mapping` for all exported gap rows.
+- `suggested_reason` highlights inactive/expired rows, missing Service Area code, possible state mismatch, possible name mismatch, or no active mapping row.
+
+---
+
+# Handover Entry - 2026-05-21 - State Wise Pincode Mapping Gap Audit
+
+## Task Completed
+- Audited state-wise Service Area Pincode Mapping coverage.
+- Created state-wise gap workbook for manual correction.
+- Did not change code.
+- Did not change schema.
+- Did not import data.
+- Did not delete data.
+
+## File Created
+- `StateWise_PincodeMapping_Gaps.xlsx`
+
+## Workbook Sheets
+- `State Summary`
+- `Missing State Mapping`
+- `Delhi Detail`
+- `Unmapped Site Pincodes`
+- `Service Areas Without Mapping`
+- `Mapping Rows By State`
+- `State Name Mismatches`
+- `SA Master Group Samples`
+
+## Overall Status
+- Customer site states audited: 38.
+- Total sites: 23,352.
+- Sites with valid pincode: 23,276.
+- Sites without valid pincode: 76.
+- Good states: 12.
+- Warning states: 8.
+- Critical states: 1.
+- Missing states: 17.
+
+## Delhi Finding
+- Delhi exists in `customer_site_master` as:
+  - `Delhi`
+  - `delhi`
+  - `DELHI`
+- Delhi has 1,144 sites.
+- Delhi has 13 Service Areas in site master.
+- Delhi has 94 distinct site pincodes.
+- `service_area_pincode_mapping` has 92 active rows with state `Delhi`.
+- Territory-effective mapping rows for canonical key `NCTOFDELHI`: 0.
+- Delhi mapped Service Areas under territory-effective matching: 0.
+- Delhi unmapped Service Areas under territory-effective matching: 13.
+- Delhi site pincodes not found in territory-effective mapping: 94.
+- Root cause: territory endpoint canonicalizes requested `Delhi` to `NCTOFDELHI`, but mapping SQL compares against raw normalized `service_area_pincode_mapping.state`, currently `DELHI`.
+
+## States Fully / Mostly Mapped
+- Assam: 100%.
+- Chhattisgarh: 100%.
+- Jammu And Kashmir: 100%.
+- Jharkhand: 95.57%.
+- Karnataka: 98.09%.
+- Kerala: 98.19%.
+- Madhya Pradesh: 98.51%.
+- Maharashtra: 96.44%.
+- Odisha: 95.63%.
+- Punjab: 97.56%.
+- Tamil Nadu: 98.17%.
+- Uttar Pradesh: 97.14%.
+
+## Weak / Missing States
+- Missing: `#N/A`, Andaman and Nicobar, Arunachal Pradesh, Chandigarh, Dadra and Nagar Haveli and Daman and Diu, Delhi, Goa, Ladakh, Lakshadweep, Manipur, Meghalaya, Mizoram, Nagaland, Pondicherry, Sikkim, Tripura, Unknown.
+- Critical: Andhra Pradesh at 68.84%.
+- Warning: Bihar at 94.97%, Gujarat at 93.12%, Haryana at 94.58%, Himachal Pradesh at 93.38%, Rajasthan at 92.34%, Telangana at 86.9%, Uttarakhand at 88.38%.
+
+## State Name Mismatch Issues
+- `DELHI` canonicalizes to `NCTOFDELHI`; site values are `Delhi`, `delhi`, `DELHI`; mapping value is `Delhi`.
+- `PONDICHERRY` canonicalizes to `PUDUCHERRY`; site value is `Pondicherry`; no active mapping rows found.
+- `UTTARPARDESH` canonicalizes to `UTTARPRADESH`; site value is `Uttar Pardesh`; no active mapping rows found.
+- `ANDAMANANDNICOBAR` canonicalizes to `ANDAMANANDNICOBARISLANDS`; site value is `Andaman and Nicobar`; no active mapping rows found.
+- `service_area_master.service_area_group` has examples such as `ODISA` and `DELHI`; samples were included in the workbook for manual review.
+
+## Notes
+- POP = Service Area rule preserved.
+- Audit treats active pincode mapping statuses as `YES`, `ACTIVE`, `TRUE`.
+- Risk classification used:
+  - Good: mapping coverage >= 95%.
+  - Warning: 80% to 94.99%.
+  - Critical: < 80%.
+  - Missing: 0 territory-effective mapping rows.
+- Delhi should be fixed by aligning state naming/canonical handling for pincode mapping before relying on the territory layer.
+
+---
+
+# Handover Entry — 2026-05-21 (Delhi state normalization fix)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Fixed Delhi state normalization for Service Area pincode territory logic and reran the state-wise pincode mapping gap export.
+
+## Files Changed
+- `backend/src/services/analyticsService.js`
+- `frontend/src/components/territoryUtils.js`
+- `PROJECT_HANDOVER.md`
+- `StateWise_PincodeMapping_Gaps.xlsx`
+
+## Backend Fix
+- Changed canonical Delhi key from `NCTOFDELHI` to `DELHI` so uploaded rows where `service_area_pincode_mapping.state = Delhi` match selected Delhi.
+- Added equivalent state key matching for Service Area territory SQL filters so selected aliases can match DB rows stored under compatible raw state names.
+- Territory filters now use equivalent keys for `service_area_pincode_mapping.state`, `customer_site_master.state`, offline metrics joined through `customer_site_master`, and active ticket state metrics.
+
+## Frontend Fix
+- Updated `territoryUtils.js` so map state selection normalizes Delhi aliases to `DELHI`.
+- Kept visible display label as Delhi.
+
+## Normalization Aliases Added / Adjusted
+- `Delhi`, `DELHI`, `NCT of Delhi`, `NCT Delhi`, `National Capital Territory of Delhi`, `New Delhi`, `NCTOFDELHI` -> `DELHI`
+- `ODISA` / `ORISSA` -> `ODISHA`
+- `Kerla` -> `KERALA`
+- `Uttar Pardesh` -> `UTTARPRADESH`
+- Existing `Pondicherry` -> `PUDUCHERRY` and Andaman/Dadra aliases were preserved.
+
+## API Validation
+- `/api/analytics/territory-coverage-audit`: OK
+- `/api/analytics/territories/service-areas?state=Delhi`: 200
+- `/api/analytics/territories/service-areas?state=NCT%20of%20Delhi`: 200
+- `/api/analytics/territories/service-areas?state=New%20Delhi`: 200
+
+## Delhi API Result
+- Mapped pincode rows: 92
+- Matched GeoJSON pincodes: 91
+- Unmatched GeoJSON pincodes: 1
+- Match rate: 98.91%
+- Service Areas returned: 8
+- Rendered Service Area features: 8
+- Response size: 400,929 bytes for all three Delhi alias requests
+
+## Browser Validation
+- Opened dashboard at `http://localhost:5173`.
+- Selected Delhi from the map/dashboard UI.
+- Service Area territory endpoint called with `state=Delhi` and returned 200.
+- Service Area territory paths rendered: 8.
+- Service Area Ranking rows visible: 8.
+- Selected `Uttam Nagar`; Service Area Profile opened with ownership details.
+- No browser console errors or page errors observed.
+
+## Updated State-wise Pincode Mapping Audit
+- Recreated `StateWise_PincodeMapping_Gaps.xlsx`.
+- States audited: 38
+- Good states: 13
+- Warning states: 8
+- Critical states: 1
+- Missing mapping states: 16
+- Delhi after fix:
+  - active mapping rows: 92
+  - total sites: 1,144
+  - distinct site pincodes: 94
+  - mapped site pincodes: 92
+  - unmapped site pincodes: 2
+  - mapping coverage: 97.87%
+  - Service Areas in sites: 12
+  - Service Areas with mapping: 8
+  - Service Areas without mapping: 4
+  - risk: Good
+
+## Validation Commands
+- `npm run build --prefix frontend` passed with existing Vite large chunk warning.
+- Backend JS syntax check passed:
+  - `Get-ChildItem -Recurse -Filter *.js backend/src | ForEach-Object { node --check $_.FullName }`
+- API health check passed with DB connected.
+
+## Remaining Issues
+- Delhi is no longer a code-side territory normalization gap.
+- Delhi still has 2 unmapped site pincodes and 4 Service Areas without pincode mapping rows.
+- Missing mapping states after normalization: Andaman and Nicobar Islands, Arunachal Pradesh, Chandigarh, Dadra and Nagar Haveli and Daman and Diu, Goa, Ladakh, Lakshadweep, Manipur, Meghalaya, Mizoram, `#N/A`, Nagaland, Puducherry, Sikkim, Tripura, Unknown.
+- Andhra Pradesh remains Critical at 68.84% pincode coverage.
+- Warning states: Bihar, Gujarat, Haryana, Himachal Pradesh, Rajasthan, Telangana, Uttarakhand, West Bengal.
+
+## Next Recommended Step
+- Use the updated `StateWise_PincodeMapping_Gaps.xlsx` to correct the remaining actual mapping gaps, starting with Andhra Pradesh and the missing-state list.
+
+---
+
+# Handover Entry — 2026-05-21 (territory map zoom increase)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Increased the Leaflet territory map maximum zoom so users can zoom deeper into Service Area / pincode territory areas.
+
+## Files Changed
+- `frontend/src/components/StateTerritoryMap.jsx`
+- `PROJECT_HANDOVER.md`
+
+## Zoom Configuration
+- `MapContainer maxZoom`: changed from `9` to `12`.
+- `TileLayer maxZoom`: set to `12`.
+- `TileLayer maxNativeZoom`: set to `12`.
+- State selection `fitBounds` cap: changed from `maxZoom: 7` to `maxZoom: 9`.
+- PAN India `fitBounds` remains capped at `maxZoom: 5` so full India still opens properly.
+
+## Validation
+- `npm run build --prefix frontend` passed with the existing Vite large chunk warning.
+- Browser smoke at `http://localhost:5173` passed:
+  - map loaded
+  - Delhi, Gujarat, and Haryana state selection exercised
+  - zoom controls reached tile zoom `12`
+  - Service Area territory paths remained visible
+  - Service Area Ranking rows remained clickable
+  - Service Area Profile opened after selecting a ranking row
+  - no browser console errors or page errors observed
+
+## Remaining Issues
+- None for this zoom-only change.
+- If field review needs even deeper inspection, next controlled step is testing `maxZoom={14}` for usability and tile performance.
+
+---
+
+# Handover Entry — 2026-05-21 (V3 foundation slice)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Started V3 of the PAN India Alarm Monitoring Service Intelligence Dashboard with safe foundational changes for historical uploads, snapshot-aware SR metrics, and a cleaner main dashboard.
+
+## Files Changed
+- `database/schema.sql`
+- `backend/src/services/ingestionService.js`
+- `backend/src/routes/uploadRoutes.js`
+- `backend/src/services/analyticsService.js`
+- `backend/src/routes/analyticsRoutes.js`
+- `frontend/src/api.js`
+- `frontend/src/App.jsx`
+- `frontend/src/components/ReportTabs.jsx`
+- `frontend/src/components/V3CommandCenter.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Data Model Added
+- `upload_history`
+  - stores `upload_date`, `source_file_name`, `uploaded_at`, `record_count`, `data_type`, target table, row counts, and JSON import summary.
+- `site_master_snapshot`
+  - stores site master rows by upload date without replacing historical site snapshots.
+- `service_request_snapshot`
+  - stores daily Service Request / ticket snapshots by `snapshot_date + ticket_id`.
+- `service_area_daily_summary`
+  - foundation table for future POP / Service Area daily summary materialization.
+
+## Upload Flow Changes
+- Existing upload behavior remains intact.
+- `view_ticket` still refreshes as latest snapshot for compatibility.
+- Ticket uploads now also write to `service_request_snapshot`.
+- Site master uploads now also write to `site_master_snapshot`.
+- Successful uploads now write a row into `upload_history`.
+- Dry-run uploads still do not write data.
+
+## Backend APIs Added
+- `/api/analytics/v3/command-center`
+  - snapshot-aware dashboard metrics.
+  - falls back to current `view_ticket` if no historical SR snapshot exists yet.
+  - distinguishes ticket-level SR count from site-level open issue count.
+  - returns upload history, SR status split, offline trend, SR trend, and Service Area summary.
+- `/api/analytics/v3/site-intelligence?siteId=...`
+  - returns site details, open SR count, total SR, total visits, offline dates, repeat failure count, and timeline.
+  - falls back to current `view_ticket` until historical SR snapshots are created by future uploads.
+
+## Frontend Changes
+- Added `V3CommandCenter` visual section with:
+  - Total SR
+  - Open SR
+  - Sites with Open SR
+  - Avg first visit time
+  - Avg closure time
+  - Repeat failure sites
+  - daily offline trend with 7/30 day averages
+  - SR status split
+  - visit/closure trend
+  - latest upload history
+- Removed Excel-style detailed issue tables from the main full dashboard view.
+- Removed `TerritoryCoverageAudit` from the main dashboard.
+- Added admin-only `Admin Data Health` report tab that contains the old mapping/data-health audit.
+
+## Validation
+- `npm run db:init`: passed; schema initialized with additive tables.
+- Backend JS syntax check: passed.
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- `/api/health`: passed with DB connected.
+- `/api/analytics/v3/command-center`: passed.
+  - Source mode currently `current_view_ticket` because no post-V3 ticket upload has populated `service_request_snapshot` yet.
+- `/api/analytics/v3/site-intelligence?siteId=20027583`: passed.
+- Browser smoke passed:
+  - V3 visual cards rendered.
+  - Main dashboard no longer shows Territory Coverage Audit or mapping-gap tables.
+  - Admin Data Health tab is hidden before admin login.
+  - Admin Data Health tab appears after admin login.
+  - Territory Coverage Audit renders under Admin Data Health.
+  - No browser console errors or page errors observed.
+
+## Remaining V3 Work
+- Backfill historical snapshots only if explicitly approved; no backfill/import was performed in this slice.
+- Materialize `service_area_daily_summary` during uploads or via a scheduled/admin rebuild step.
+- Add true map layer toggles for all requested V3 layers:
+  - Service Health
+  - Open Site Issues
+  - Offline Frequency
+  - Repeat Failures
+  - SLA Breach
+  - Visit Delay
+  - Vendor Delay
+  - Engineer Activity
+- Add full drill-down path:
+  - India Map -> State -> POP/Service Area -> Site -> Timeline
+- Build the Site Intelligence drawer in the frontend.
+- Extend trend charts once multiple daily uploads exist.
+
+## Next Recommended Step
+- Step 2 should make upload history visible in Admin Data Health and add a controlled `service_area_daily_summary` generation function after each ticket/offline upload.
+
+---
+
+# Handover Entry — 2026-05-21 (V3 backend historical service intelligence APIs)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Implemented backend support for the requested V3 historical service intelligence layer while keeping existing APIs and upload behavior working.
+
+## Files Changed
+- `database/schema.sql`
+- `backend/src/services/ingestionService.js`
+- `backend/src/routes/uploadRoutes.js`
+- `backend/src/services/v3Service.js`
+- `backend/src/routes/v3Routes.js`
+- `backend/src/server.js`
+- `PROJECT_HANDOVER.md`
+
+## Schema Added / Aligned
+- Extended `upload_history` with requested V3 fields:
+  - `upload_id`
+  - `records_count`
+  - `processed_count`
+  - `rejected_count`
+  - `status`
+  - `error_message`
+- Added `daily_offline_snapshots`.
+- Added `service_requests`.
+- Added `service_visits`.
+- Existing `service_request_snapshot`, `site_master_snapshot`, and `service_area_daily_summary` remain in place from the earlier V3 foundation slice.
+
+## Upload / Storage Behavior
+- Existing imports still populate existing tables.
+- Offline uploads now also populate `daily_offline_snapshots`.
+- Ticket uploads now also upsert into `service_requests`.
+- Ticket Activity uploads now also upsert into `service_visits`.
+- Successful uploads create `upload_history` rows with V3 status/count fields.
+- Offline snapshot rows are linked back to the created `upload_id` after upload history is recorded.
+- Dry-run uploads remain non-mutating.
+
+## Aggregation Functions Added
+Implemented in `backend/src/services/v3Service.js`:
+- `getDashboardSummary(dateRange, state, serviceArea)`
+- `getStateHealth(dateRange)`
+- `getServiceAreaHealth(state, dateRange)`
+- `getSiteIntelligence(siteId)`
+- `getOfflineTrend(scope, dateRange)`
+- `getRepeatFailureTrend(scope, dateRange)`
+- `getVisitPerformance(scope, dateRange)`
+- `getUploadsHistory()`
+
+## API Endpoints Added
+- `GET /api/v3/dashboard/summary`
+- `GET /api/v3/dashboard/state-health`
+- `GET /api/v3/dashboard/service-area-health`
+- `GET /api/v3/dashboard/offline-trend`
+- `GET /api/v3/dashboard/repeat-failures`
+- `GET /api/v3/dashboard/visit-performance`
+- `GET /api/v3/sites/:siteId/intelligence`
+- `GET /api/v3/uploads/history`
+
+## Important Calculation Rules Implemented
+- `total_sr`: ticket count.
+- `open_sr`: ticket count where status is `OPEN`.
+- `pending_sr`: ticket count where status is `PENDING`.
+- `complete_sr`: ticket count where status is `COMPLETE` or existing source value `COMPLETED`.
+- `sites_with_open_sr`: distinct `site_id` where status is `OPEN` or `PENDING`.
+- `open_site_issue_percentage`: `sites_with_open_sr / total sites in scope * 100`.
+- `avg_first_visit_time_hours`: first visit date minus open date.
+- `avg_closure_time_hours`: complete date minus open date.
+- `offline_frequency`: distinct offline snapshot dates per site in site intelligence.
+- `repeat_failure`: new SR opened after previous SR was completed for the same site.
+- `repeat_after_days`: next open date minus previous complete date.
+
+## Compatibility
+- Existing `/api/analytics/...` APIs remain mounted and unchanged.
+- Existing `/api/uploads` behavior remains available.
+- V3 service request queries fall back to `view_ticket` when `service_requests` is empty, so endpoints are usable before the next post-V3 upload.
+
+## Validation
+- `npm run db:init`: passed.
+- Backend JS syntax check: passed.
+- `/api/health`: passed with DB connected.
+- Endpoint checks passed:
+  - `/api/v3/dashboard/summary`
+  - `/api/v3/dashboard/state-health`
+  - `/api/v3/dashboard/service-area-health?state=Delhi`
+  - `/api/v3/dashboard/offline-trend`
+  - `/api/v3/dashboard/repeat-failures`
+  - `/api/v3/dashboard/visit-performance`
+  - `/api/v3/sites/20027583/intelligence`
+  - `/api/v3/uploads/history`
+- Current summary sample from fallback/current ticket data:
+  - total SR: 31,771
+  - open SR: 7,797
+  - pending SR: 1,088
+  - complete SR: 377
+  - sites with open SR: 5,429
+
+## Remaining Notes
+- `daily_offline_snapshots`, `service_requests`, `service_visits`, and V3 `upload_history` are populated by future uploads.
+- Existing historical data was not backfilled into the new V3 tables.
+- Backfill can be added later as a controlled admin script if approved.
+
+---
+
+# Handover Entry — 2026-05-21 (V3 frontend service command center)
+
+## Agent / Tool
+Codex
+
+## Task Completed
+Reworked the main dashboard into a V3 visual service command center and moved mapping/data-health content out of the main dashboard.
+
+## Files Changed
+- `frontend/src/api.js`
+- `frontend/src/App.jsx`
+- `frontend/src/components/LayerToggle.jsx`
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/components/V3CommandCenter.jsx`
+- `frontend/src/components/territoryUtils.js`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Main Dashboard Changes
+- Removed old Excel-style main issue table sections from the Full Report render path.
+- Removed old operational issue-analysis blocks from the main Full Report render path:
+  - Ground lag funnel
+  - Risk states / POP tables
+  - Distribution chart
+  - Engineer productivity card block
+  - Old breakdown chart block
+- Full Report now shows:
+  - V3 command cards
+  - V3 visual intelligence charts
+  - right-side intelligence panel
+  - India command map
+
+## V3 Command Cards Added
+- Total Open SR
+- Pending SR
+- Completed SR
+- Sites With Open Issues
+- Open Site Issue %
+- Avg First Visit Time
+- Repeat Failure Sites
+- Offline Sites Last 30 Day Avg
+
+## V3 Charts Added
+- SR status donut
+- Daily offline line chart
+- Repeat failure bar chart
+- Visit time trend line
+- Ageing / visit-delay bucket chart
+- Service health score cards
+
+## Map Layer Toggles Added
+- Service Health
+- Open Site Issues
+- Offline Frequency
+- Repeat Failures
+- SLA Breach
+- Visit Delay
+- Vendor Delay
+- Engineer Activity
+
+## Drilldown / Intelligence Panel
+- Default panel shows:
+  - today's alerts
+  - worst states
+  - highest repeat failure count
+  - delayed visit trend snippets
+- State selection updates the panel to:
+  - state summary
+  - SR split
+  - POP ranking visual
+  - repeat failure scope summary
+- POP / Service Area selection updates the panel to:
+  - Total SR
+  - Open SR
+  - Pending SR
+  - Complete SR
+  - Sites with Open SR
+  - Open Site Issue %
+  - Avg Visit Time
+  - Avg Closure Time
+  - Repeat Failure Sites
+  - Offline Avg Last 30 Days
+
+## Site Intelligence Drawer
+- Added frontend Site Intelligence drawer component.
+- Drawer displays:
+  - site name
+  - CS ID
+  - ATM ID
+  - state
+  - service area
+  - current open SR count
+  - total SR till date
+  - total visits till date
+  - last visit date
+  - offline appeared dates
+  - repeat failure count
+  - avg reopened after days
+  - event timeline
+- Note: the drawer is ready for site-level marker clicks, but the current map dataset still exposes Service Area markers, not individual site markers. Full site-marker click behavior needs a site marker layer/data feed in the next slice.
+
+## Admin Data Health
+- `TerritoryCoverageAudit` remains removed from main dashboard.
+- Admin-only `Admin Data Health` tab still contains:
+  - Service Areas Without Mapping
+  - Sites Without Pincode
+  - Site Pincodes Missing From Mapping
+  - Pincode Mapping Conflicts
+
+## Validation
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JS syntax check: passed.
+- Browser smoke passed:
+  - 8 V3 command cards rendered.
+  - 5 V3 chart cards rendered.
+  - all 8 requested map layer labels visible.
+  - mapping/data-health sections are absent from the main dashboard.
+  - default intelligence panel shows today's alerts / watchlist.
+  - state selection updates panel to State Intelligence.
+  - POP ranking has rows and POP selection updates the panel to POP Intelligence.
+  - Admin Data Health is hidden before admin login.
+  - Admin Data Health appears after admin login and contains Territory Coverage Audit / mapping sections.
+  - no browser console errors or page errors observed.
+
+## Remaining Work
+- Add a true site marker layer so clicking individual site markers opens the Site Intelligence drawer directly.
+- Wire V3 map colors to backend state health score instead of current compatibility metrics where needed.
+- Add frontend date/scope filters for V3 API date-range parameters.
+
+# Handover Entry — 2026-05-22 (site denominator naming clarification)
+
+Clarified the locked site denominator rule without changing formulas or schema.
+
+## Rule Confirmed
+- Site denominator rule: use all sites in the selected scope.
+- Do not filter `customer_site_master.active_status` yet.
+- Any `active_sites` API field is compatibility naming only and currently means all sites in scope.
+
+## Files Updated
+- `backend/src/services/analyticsService.js`
+- `backend/src/services/v3Service.js`
+- `frontend/src/components/V3CommandCenter.jsx`
+- `GUARDRAILS.md`
+- `ARCHITECTURE.md`
+- `PROJECT_HANDOVER.md`
+
+## UI Label Update
+- V3 command center now labels the denominator as Total Sites / total sites in scope instead of Active Sites.
+
+## Backend Notes
+- Added inline comments near total site denominator calculations and compatibility `active_sites`/`total_active_sites` fields.
+- Kept compatibility fields intact while adding explicit `total_sites` aliases where useful.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JavaScript syntax check: passed.
+- `/api/analytics/overview`: passed and still returns `total_sites`.
+- `/api/analytics/state-wise`: passed and still returns state rows with `total_sites`.
+- `/api/analytics/service-area-profile?state=Uttar%20Pradesh&serviceArea=Agra%20A`: passed.
+- `/api/v3/dashboard/summary`: passed and returns `total_sites`, `total_sites_in_scope`, and compatibility `total_active_sites_in_scope` with the same all-sites count.
+
+# Handover Entry — 2026-05-22 (Full Report map moved to top)
+
+Moved the existing territory map section to the top of the Full Report page without changing map logic, API calls, formulas, or Service Area territory behavior.
+
+## Files Updated
+- `frontend/src/App.jsx`
+- `PROJECT_HANDOVER.md`
+
+## Layout Change
+- Old Full Report order:
+  - V3 command center / KPI cards
+  - Territory map section
+- New Full Report order:
+  - Territory map section
+  - V3 command center / KPI cards and charts
+
+## Map Component
+- Moved the existing `TerritoryMapCard` render position.
+- No duplicate map was added.
+- `V3CommandCenter`, `TerritoryMapCard`, `StateTerritoryMap`, layer toggles, Service Area ranking, polygons, and profile behavior remain intact.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JavaScript syntax check: passed.
+- `/api/health`: passed with `dbConnected: true`.
+- `/api/analytics/overview`: passed.
+- Browser smoke passed:
+  - Full Report opens.
+  - `PAN India Ground Risk Territory Map` appears immediately after the report tabs/header area.
+  - only one `TerritoryMapCard` is present.
+  - V3 KPI cards render below the map.
+  - Service Health / Open Site Issues layer buttons switch without console errors.
+  - State selection through the map summary chips works.
+  - Service Area selection still opens Service Area operations/profile content.
+  - State Wise tab renders.
+  - Engineer Wise and Customer Wise placeholders render.
+  - no browser console errors observed.
+
+# Handover Entry — 2026-05-22 (compact map legend UI fix)
+
+Fixed the compact overlay legend inside the territory map so it is small but complete and readable.
+
+## Files Updated
+- `frontend/src/components/MapLegend.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Legend Fixes
+- Updated `MapLegend` to use the current V3 map layer keys:
+  - Service Health
+  - Open Site Issues
+  - Offline Frequency
+  - Repeat Failures
+  - SLA Breach
+  - Visit Delay
+  - Vendor Delay
+  - Engineer Activity
+- Replaced old legacy key handling that expected layers like `offline`.
+- Increased compact overlay legend width/padding and allowed normal text wrapping so the card does not look cropped.
+
+## Color Scale
+- Restored a complete 4-color health scale for Service Health and Offline Frequency:
+  - Good = green
+  - Warning = amber
+  - High = orange
+  - Critical = red
+- Other layers keep compact 3-step load/activity scales without broken or missing bars.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JavaScript syntax check: passed.
+- Browser smoke passed:
+  - Service Health legend shows 4 bars.
+  - Service Health legend text reads `Good 0–2% · Warning >2–5% · High >5–10% · Critical >10%`.
+  - Legend card width/height are no longer cropped.
+  - Legend overflow is visible.
+  - Open Site Issues and Engineer Activity layer titles/text update cleanly.
+  - map container still renders.
+  - no browser console errors observed.
+
+# Handover Entry — 2026-05-22 (Service Health color scale synced)
+
+Synced map polygon colors with the Service Health legend using one shared frontend palette/helper.
+
+## Files Updated
+- `frontend/src/components/territoryUtils.js`
+- `frontend/src/components/MapLegend.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Shared Palette
+- Added/reused shared `SERVICE_HEALTH_COLORS` in `territoryUtils.js`:
+  - Good: `#2E7D32`
+  - Warning: `#D6A100`
+  - High: `#E67E22`
+  - Critical: `#C0392B`
+  - No Data: `#CBD5E1`
+
+## Map Polygon Color Fix
+- Service Health map fills now use offline severity percentage thresholds through the shared helper.
+- Offline Frequency and Service Area territory fills also use the same helper/palette.
+- Missing/invalid values now resolve to No Data grey instead of green.
+
+## Legend Sync
+- `MapLegend` now imports the shared palette and health legend definition from `territoryUtils.js`.
+- Health legend bars are rendered from the same colors used by polygon fills.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JavaScript syntax check: passed.
+- Browser smoke passed:
+  - Service Health legend shows green / amber / orange / red from the shared palette.
+  - PAN India state polygon fills are limited to the same Service Health palette.
+  - Selected `Uttar Pradesh` Service Area polygon fills are limited to the same Service Health palette.
+  - Open Site Issues layer still switches and updates legend title/text.
+  - no browser console errors observed.
+- Helper check passed:
+  - `getTerritoryFill(null, 0, 'serviceHealth')` returns `#CBD5E1`.
+  - `getOfflineSeverityColorByPercentage(undefined)` returns `#CBD5E1`.
+
+# Handover Entry — 2026-05-22 (PAN India right map panel summary)
+
+Filled the previously empty right-side map container in PAN India mode with a compact PAN India Summary card.
+
+## Files Updated
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## PAN India Summary Added
+- When no state is selected, the right-side map panel now shows `PAN India Summary`.
+- When a state is selected, the existing `Service Area Ranking` behavior is preserved.
+- Service Area selection/profile behavior remains unchanged.
+
+## Metrics Shown
+- Total Sites
+- Total Offline Sites
+- Offline > 3 Days
+- Offline %
+- Open Tickets
+- Pending Tickets
+- Ticket But No Visit
+- Active Engineers
+- Total Service Areas
+- Avg TAT
+- Critical / Warning / Good state counts when state map rows are available
+
+## Data Source
+- Uses existing frontend-loaded `overview` and state map summary data.
+- No backend endpoint, formula, schema, or API change was made.
+
+## Validation Results
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JavaScript syntax check: passed.
+- Browser smoke passed:
+  - PAN India mode shows `PAN India Summary` in the right map panel.
+  - right map panel contains 10 compact metric rows.
+  - selected-state mode switches the same panel to `Service Area Ranking`.
+  - Back to PAN India restores `PAN India Summary`.
+  - Service Area ranking row selection still works.
+  - Service Area Profile content still opens.
+  - no browser console errors observed.

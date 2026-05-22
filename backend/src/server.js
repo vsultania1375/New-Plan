@@ -4,6 +4,7 @@ import { env } from './config/env.js';
 import { query } from './db/pool.js';
 import { analyticsRoutes } from './routes/analyticsRoutes.js';
 import { uploadRoutes } from './routes/uploadRoutes.js';
+import { v3Routes } from './routes/v3Routes.js';
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/v3', v3Routes);
 
 app.use((error, _req, res, _next) => {
   console.error(error);

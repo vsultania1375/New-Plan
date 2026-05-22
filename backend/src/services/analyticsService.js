@@ -17,10 +17,15 @@ const stateKeyAliases = {
   ANDAMANANDNICOBAR: 'ANDAMANANDNICOBARISLANDS',
   ANDAMANANDNICOBARISLAND: 'ANDAMANANDNICOBARISLANDS',
   CHHATISGARH: 'CHHATTISGARH',
-  DELHI: 'NCTOFDELHI',
-  NATIONALCAPITALTERRITORYOFDELHI: 'NCTOFDELHI',
+  DELHI: 'DELHI',
+  NCTOFDELHI: 'DELHI',
+  NCTDELHI: 'DELHI',
+  NATIONALCAPITALTERRITORYOFDELHI: 'DELHI',
+  NEWDELHI: 'DELHI',
   ORISSA: 'ODISHA',
+  ODISA: 'ODISHA',
   PONDICHERRY: 'PUDUCHERRY',
+  KERLA: 'KERALA',
   JAMMUKASHMIR: 'JAMMUANDKASHMIR',
   UTTARPARDESH: 'UTTARPRADESH',
   DADRAANDNAGRAHAVELIANDDAMANANDDIU: 'DADRAANDNAGARHAVELIANDDAMANANDDIU',
@@ -29,7 +34,7 @@ const stateKeyAliases = {
 };
 
 const stateDisplayNames = {
-  NCTOFDELHI: 'Delhi',
+  DELHI: 'Delhi',
   ANDAMANANDNICOBARISLANDS: 'Andaman and Nicobar Islands',
   JAMMUANDKASHMIR: 'Jammu and Kashmir',
   DADRAANDNAGARHAVELIANDDAMANANDDIU: 'Dadra and Nagar Haveli and Daman and Diu',
@@ -41,6 +46,16 @@ const stateDisplayNames = {
 function canonicalStateKey(value) {
   const key = String(value || 'Unknown').toUpperCase().replace(/[^A-Z0-9]/g, '');
   return stateKeyAliases[key] || key;
+}
+
+function equivalentStateKeys(value) {
+  const rawKey = String(value || 'Unknown').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const canonicalKey = canonicalStateKey(rawKey);
+  const keys = new Set([canonicalKey, rawKey]);
+  for (const [alias, target] of Object.entries(stateKeyAliases)) {
+    if (target === canonicalKey) keys.add(alias);
+  }
+  return [...keys].filter(Boolean);
 }
 
 function mergeStateRows(rows) {
@@ -114,6 +129,8 @@ export async function getOverview() {
       GROUP BY ticket_id
     )
     SELECT
+      -- Site denominator rule: total_sites counts all sites in scope.
+      -- Do not filter by customer_site_master.active_status until business rule changes.
       (SELECT COUNT(DISTINCT oracle_site_no)::int FROM customer_site_master) AS total_sites,
       NULL::int AS total_psu_sites,
       NULL::int AS total_pvt_sites,
@@ -329,6 +346,8 @@ export async function getStateMapData() {
         UPPER(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(state), ''), 'UNKNOWN'), '[^A-Za-z0-9]', '', 'g'))
     ),
     site_state AS (
+      -- Site denominator rule: total_sites counts all sites in selected state.
+      -- Do not filter by customer_site_master.active_status until business rule changes.
       SELECT
         UPPER(REGEXP_REPLACE(COALESCE(NULLIF(TRIM(state), ''), 'UNKNOWN'), '[^A-Za-z0-9]', '', 'g')) AS state_key,
         MAX(COALESCE(NULLIF(TRIM(state), ''), 'Unknown')) AS state,
@@ -761,7 +780,7 @@ export async function getServiceAreaTerritories({ state }) {
     throw error;
   }
 
-  const selectedStateKey = canonicalStateKey(requestedState);
+  const selectedStateKeys = equivalentStateKeys(requestedState);
   const geometryCache = await loadOpenCityPincodeGeometry();
 
   const [mappingResult, metricsResult] = await Promise.all([
@@ -783,11 +802,11 @@ export async function getServiceAreaTerritories({ state }) {
         COUNT(DISTINCT pincode)::int AS mapped_pincode_count
       FROM service_area_pincode_mapping m
       WHERE UPPER(TRIM(active_status)) IN ('YES', 'ACTIVE', 'TRUE')
-        AND UPPER(REGEXP_REPLACE(TRIM(state), '[^A-Za-z0-9]', '', 'g')) = $1
+        AND UPPER(REGEXP_REPLACE(TRIM(state), '[^A-Za-z0-9]', '', 'g')) = ANY($1)
       GROUP BY service_area_key
       ORDER BY MAX(service_area_name)
       `,
-      [selectedStateKey]
+      [selectedStateKeys]
     ),
     query(
       `
@@ -813,7 +832,7 @@ export async function getServiceAreaTerritories({ state }) {
           UPPER(REGEXP_REPLACE(TRIM(service_area_name), '[^A-Za-z0-9]', '', 'g')) AS service_area_key,
           COUNT(DISTINCT oracle_site_no)::int AS total_sites
         FROM customer_site_master
-        WHERE UPPER(REGEXP_REPLACE(TRIM(state), '[^A-Za-z0-9]', '', 'g')) = $1
+        WHERE UPPER(REGEXP_REPLACE(TRIM(state), '[^A-Za-z0-9]', '', 'g')) = ANY($1)
           AND NULLIF(TRIM(service_area_name), '') IS NOT NULL
         GROUP BY UPPER(REGEXP_REPLACE(TRIM(service_area_name), '[^A-Za-z0-9]', '', 'g'))
       ),
@@ -824,7 +843,7 @@ export async function getServiceAreaTerritories({ state }) {
           COUNT(DISTINCT o.cs_id) FILTER (WHERE o.segment = 'PSU' AND o.aging_days > 3)::int AS offline_gt_3_days
         FROM latest_offline o
         JOIN customer_site_master s ON s.cs_id = o.cs_id
-        WHERE UPPER(REGEXP_REPLACE(TRIM(s.state), '[^A-Za-z0-9]', '', 'g')) = $1
+        WHERE UPPER(REGEXP_REPLACE(TRIM(s.state), '[^A-Za-z0-9]', '', 'g')) = ANY($1)
           AND NULLIF(TRIM(s.service_area_name), '') IS NOT NULL
         GROUP BY UPPER(REGEXP_REPLACE(TRIM(s.service_area_name), '[^A-Za-z0-9]', '', 'g'))
       ),
@@ -840,7 +859,7 @@ export async function getServiceAreaTerritories({ state }) {
             t.*,
             COUNT(*) OVER (PARTITION BY UPPER(REGEXP_REPLACE(TRIM(t.service_area_name), '[^A-Za-z0-9]', '', 'g')), t.ticket_status)::int AS status_count
           FROM active_tickets t
-          WHERE UPPER(REGEXP_REPLACE(TRIM(t.state), '[^A-Za-z0-9]', '', 'g')) = $1
+          WHERE UPPER(REGEXP_REPLACE(TRIM(t.state), '[^A-Za-z0-9]', '', 'g')) = ANY($1)
             AND NULLIF(TRIM(t.service_area_name), '') IS NOT NULL
         ) t
         LEFT JOIN visit_counts vc ON vc.ticket_id = t.ticket_id
@@ -859,7 +878,7 @@ export async function getServiceAreaTerritories({ state }) {
       FULL OUTER JOIN offline_metrics om ON om.service_area_key = sm.service_area_key
       FULL OUTER JOIN ticket_metrics tm ON tm.service_area_key = COALESCE(sm.service_area_key, om.service_area_key)
       `,
-      [selectedStateKey, activeStatuses]
+      [selectedStateKeys, activeStatuses]
     )
   ]);
 
@@ -1580,4 +1599,302 @@ export async function getBreakdowns() {
     )
   ]);
   return { bucket: bucket.rows, bank: bank.rows };
+}
+
+function scopeWhere(alias, filters = {}, startIndex = 1) {
+  const clauses = [];
+  const values = [];
+  if (filters.state) {
+    values.push(filters.state);
+    clauses.push(`LOWER(TRIM(${alias}.state)) = LOWER(TRIM($${startIndex + values.length - 1}))`);
+  }
+  if (filters.serviceArea) {
+    values.push(filters.serviceArea);
+    clauses.push(`LOWER(TRIM(${alias}.service_area_name)) = LOWER(TRIM($${startIndex + values.length - 1}))`);
+  }
+  return { clause: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '', values };
+}
+
+async function serviceRequestSource() {
+  const snapshot = await query('SELECT MAX(snapshot_date) AS snapshot_date, COUNT(*)::int AS rows FROM service_request_snapshot');
+  if (Number(snapshot.rows[0]?.rows || 0) > 0) {
+    return {
+      table: 'service_request_snapshot',
+      dateColumn: 'snapshot_date',
+      latestDate: snapshot.rows[0].snapshot_date,
+      sourceMode: 'historical_snapshot'
+    };
+  }
+  return {
+    table: 'view_ticket',
+    dateColumn: 'CURRENT_DATE',
+    latestDate: null,
+    sourceMode: 'current_view_ticket'
+  };
+}
+
+export async function getV3CommandCenter(filters = {}) {
+  const source = await serviceRequestSource();
+  const scoped = scopeWhere('sr', filters, source.table === 'service_request_snapshot' ? 2 : 1);
+  const dateFilter = source.table === 'service_request_snapshot' ? 'sr.snapshot_date = $1' : 'TRUE';
+  const params = source.table === 'service_request_snapshot'
+    ? [source.latestDate, ...scoped.values]
+    : scoped.values;
+  const scopeClause = scoped.clause
+    ? `${source.table === 'service_request_snapshot' ? 'AND' : 'WHERE'} ${scoped.clause.replace(/^WHERE\s+/i, '')}`
+    : '';
+
+  const [
+    uploadResult,
+    metricResult,
+    statusResult,
+    offlineTrendResult,
+    srTrendResult,
+    serviceAreaResult,
+    totalSitesResult
+  ] = await Promise.all([
+    query(
+      `SELECT id, upload_date, source_file_name, uploaded_at, record_count, data_type, target_table
+       FROM upload_history
+       ORDER BY uploaded_at DESC
+       LIMIT 12`
+    ),
+    query(
+      `
+      WITH sr AS (
+        SELECT *
+        FROM ${source.table} sr
+        WHERE ${dateFilter}
+        ${scopeClause}
+      ),
+      latest_offline AS (
+        SELECT o.*
+        FROM offline_data_master o
+        WHERE o.data_date = (SELECT MAX(data_date) FROM offline_data_master)
+      ),
+      scoped_offline AS (
+        SELECT o.*
+        FROM latest_offline o
+        LEFT JOIN customer_site_master s ON s.cs_id = o.cs_id
+        WHERE ($${params.length + 1}::text IS NULL OR LOWER(TRIM(COALESCE(s.state, o.state))) = LOWER(TRIM($${params.length + 1})))
+          AND ($${params.length + 2}::text IS NULL OR LOWER(TRIM(s.service_area_name)) = LOWER(TRIM($${params.length + 2})))
+      ),
+      repeat_sites AS (
+        SELECT COALESCE(NULLIF(oracle_site_no, ''), NULLIF(cs_id, '')) AS site_id
+        FROM ${source.table}
+        WHERE COALESCE(NULLIF(oracle_site_no, ''), NULLIF(cs_id, '')) IS NOT NULL
+        GROUP BY COALESCE(NULLIF(oracle_site_no, ''), NULLIF(cs_id, ''))
+        HAVING COUNT(DISTINCT ticket_id) > 1
+      ),
+      offline_30 AS (
+        SELECT data_date, COUNT(DISTINCT cs_id)::int AS offline_sites
+        FROM offline_data_master
+        WHERE data_date >= CURRENT_DATE - INTERVAL '29 days'
+        GROUP BY data_date
+      )
+      SELECT
+        (SELECT COUNT(*)::int FROM sr) AS total_sr,
+        (SELECT COUNT(*)::int FROM sr WHERE ticket_status = ANY($${params.length + 3})) AS open_sr,
+        (SELECT COUNT(*)::int FROM sr WHERE ticket_status IN ('PENDING', 'SENTBACK', 'SENDBACK')) AS pending_sr,
+        (SELECT COUNT(*)::int FROM sr WHERE ticket_status = 'COMPLETED') AS complete_sr,
+        (
+          SELECT COUNT(DISTINCT COALESCE(NULLIF(oracle_site_no, ''), NULLIF(cs_id, '')))::int
+          FROM sr
+          WHERE ticket_status = ANY($${params.length + 3})
+        ) AS sites_with_open_sr,
+        (
+          SELECT ROUND(AVG(EXTRACT(EPOCH FROM (last_visit_in_datetime - create_date)) / 3600)::numeric, 1)
+          FROM sr
+          WHERE create_date IS NOT NULL AND last_visit_in_datetime IS NOT NULL
+        ) AS avg_first_visit_hours,
+        (
+          SELECT ROUND(AVG(EXTRACT(EPOCH FROM (ticket_closed_datetime - create_date)) / 3600)::numeric, 1)
+          FROM sr
+          WHERE create_date IS NOT NULL AND ticket_closed_datetime IS NOT NULL
+        ) AS avg_closure_hours,
+        (SELECT COUNT(*)::int FROM repeat_sites) AS repeat_failure_sites,
+        (SELECT COUNT(DISTINCT cs_id)::int FROM scoped_offline WHERE segment = 'PSU' AND aging_days > 2) AS current_offline_sites,
+        (SELECT ROUND(AVG(offline_sites)::numeric, 1) FROM offline_30) AS offline_sites_avg_30_days
+      `,
+      [...params, filters.state || null, filters.serviceArea || null, activeStatuses]
+    ),
+    query(
+      `
+      SELECT COALESCE(ticket_status, 'Unknown') AS name, COUNT(*)::int AS value
+      FROM ${source.table} sr
+      WHERE ${dateFilter}
+      ${scopeClause}
+      GROUP BY COALESCE(ticket_status, 'Unknown')
+      ORDER BY value DESC
+      `,
+      params
+    ),
+    query(
+      `
+      WITH daily AS (
+        SELECT data_date, COUNT(DISTINCT cs_id)::int AS offline_sites
+        FROM offline_data_master
+        WHERE data_date >= CURRENT_DATE - INTERVAL '59 days'
+        GROUP BY data_date
+      )
+      SELECT
+        data_date,
+        offline_sites,
+        ROUND(AVG(offline_sites) OVER (ORDER BY data_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)::numeric, 1) AS avg_7_day,
+        ROUND(AVG(offline_sites) OVER (ORDER BY data_date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW)::numeric, 1) AS avg_30_day
+      FROM daily
+      ORDER BY data_date
+      `
+    ),
+    query(
+      `
+      WITH daily AS (
+        SELECT
+          ${source.table === 'service_request_snapshot' ? 'snapshot_date' : 'CURRENT_DATE'}::date AS metric_date,
+          COUNT(*)::int AS total_sr,
+          COUNT(*) FILTER (WHERE ticket_status = ANY($1))::int AS open_sr,
+          COUNT(DISTINCT COALESCE(NULLIF(oracle_site_no, ''), NULLIF(cs_id, ''))) FILTER (WHERE ticket_status = ANY($1))::int AS sites_with_open_sr,
+          ROUND(AVG(EXTRACT(EPOCH FROM (last_visit_in_datetime - create_date)) / 3600)::numeric, 1) AS avg_first_visit_hours,
+          ROUND(AVG(EXTRACT(EPOCH FROM (ticket_closed_datetime - create_date)) / 3600)::numeric, 1) AS avg_closure_hours
+        FROM ${source.table}
+        GROUP BY ${source.table === 'service_request_snapshot' ? 'snapshot_date' : 'CURRENT_DATE'}
+      )
+      SELECT *
+      FROM daily
+      ORDER BY metric_date
+      LIMIT 60
+      `,
+      [activeStatuses]
+    ),
+    query(
+      `
+      SELECT
+        COALESCE(NULLIF(TRIM(state), ''), 'Unknown') AS state,
+        COALESCE(NULLIF(TRIM(service_area_name), ''), 'Unmapped') AS service_area_name,
+        COUNT(*)::int AS total_sr,
+        COUNT(*) FILTER (WHERE ticket_status = ANY($${params.length + 1}))::int AS open_sr,
+        COUNT(DISTINCT COALESCE(NULLIF(oracle_site_no, ''), NULLIF(cs_id, ''))) FILTER (WHERE ticket_status = ANY($${params.length + 1}))::int AS sites_with_open_sr,
+        ROUND(AVG(EXTRACT(EPOCH FROM (last_visit_in_datetime - create_date)) / 3600)::numeric, 1) AS avg_first_visit_hours,
+        ROUND(AVG(EXTRACT(EPOCH FROM (ticket_closed_datetime - create_date)) / 3600)::numeric, 1) AS avg_closure_hours
+      FROM ${source.table} sr
+      WHERE ${dateFilter}
+      ${scopeClause}
+      GROUP BY COALESCE(NULLIF(TRIM(state), ''), 'Unknown'), COALESCE(NULLIF(TRIM(service_area_name), ''), 'Unmapped')
+      ORDER BY open_sr DESC, total_sr DESC
+      LIMIT 20
+      `,
+      [...params, activeStatuses]
+    ),
+    query(
+      `-- Site denominator rule: total_sites counts all sites in scope.
+       -- Any active_sites API naming is compatibility-only and must not imply filtering active_status.
+       SELECT COUNT(DISTINCT oracle_site_no)::int AS total_sites FROM customer_site_master`
+    )
+  ]);
+
+  const metrics = metricResult.rows[0] || {};
+  const totalSites = Number(totalSitesResult.rows[0]?.total_sites || 0);
+  const sitesWithOpenSr = Number(metrics.sites_with_open_sr || 0);
+
+  return {
+    source_mode: source.sourceMode,
+    latest_service_request_snapshot: source.latestDate,
+    upload_history: uploadResult.rows,
+    metrics: {
+      ...metrics,
+      total_sites: totalSites,
+      // active_sites is kept for API compatibility.
+      // It currently means all sites in selected scope.
+      // Do not filter by customer_site_master.active_status until business rule changes.
+      active_sites: totalSites,
+      open_site_issue_percentage: totalSites ? Math.round((sitesWithOpenSr / totalSites) * 1000) / 10 : null
+    },
+    sr_status_split: statusResult.rows,
+    daily_offline_trend: offlineTrendResult.rows,
+    service_request_trend: srTrendResult.rows,
+    service_area_summary: serviceAreaResult.rows
+  };
+}
+
+export async function getV3SiteIntelligence({ siteId }) {
+  const cleanedSiteId = String(siteId || '').trim();
+  if (!cleanedSiteId) {
+    const error = new Error('siteId query parameter is required');
+    error.status = 400;
+    throw error;
+  }
+
+  const source = await serviceRequestSource();
+  const [siteResult, ticketResult, visitResult, offlineResult] = await Promise.all([
+    query(
+      `SELECT *
+       FROM customer_site_master
+       WHERE oracle_site_no = $1 OR cs_id = $1
+       LIMIT 1`,
+      [cleanedSiteId]
+    ),
+    query(
+      `SELECT
+         ${source.table === 'service_request_snapshot' ? 'snapshot_date' : 'CURRENT_DATE'}::date AS snapshot_date,
+         *
+       FROM ${source.table}
+       WHERE oracle_site_no = $1 OR cs_id = $1
+       ORDER BY ${source.table === 'service_request_snapshot' ? 'snapshot_date' : 'CURRENT_DATE'} DESC, create_date DESC NULLS LAST
+       LIMIT 200`,
+      [cleanedSiteId]
+    ),
+    query(
+      `SELECT *
+       FROM visit_master
+       WHERE oracle_site_no = $1 OR cs_id = $1
+       ORDER BY visit_in_datetime DESC NULLS LAST
+       LIMIT 200`,
+      [cleanedSiteId]
+    ),
+    query(
+      `SELECT data_date, offline_date_time, aging_days, segment, source_file
+       FROM offline_data_master
+       WHERE cs_id = $1
+       ORDER BY data_date DESC, offline_date_time DESC NULLS LAST
+       LIMIT 200`,
+      [cleanedSiteId]
+    )
+  ]);
+
+  const tickets = ticketResult.rows;
+  const visits = visitResult.rows;
+  const offlineRows = offlineResult.rows;
+  const timeline = [
+    ...offlineRows.map((row) => ({
+      type: 'offline',
+      date: row.offline_date_time || row.data_date,
+      label: 'Site appeared offline',
+      detail: `Aging ${row.aging_days ?? '—'} days`
+    })),
+    ...tickets.map((row) => ({
+      type: 'service_request',
+      date: row.create_date || row.snapshot_date,
+      label: `SR ${row.ticket_id} ${row.ticket_status || ''}`.trim(),
+      detail: row.assigned_employee_name || row.ticket_status_reason || null
+    })),
+    ...visits.map((row) => ({
+      type: 'visit',
+      date: row.visit_in_datetime,
+      label: `Visit ${row.visit_id || row.ticket_id || ''}`.trim(),
+      detail: row.employee_id || null
+    }))
+  ].filter((item) => item.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const openTickets = tickets.filter((row) => activeStatuses.includes(row.ticket_status));
+  return {
+    site: siteResult.rows[0] || null,
+    current_open_sr_count: openTickets.length,
+    total_sr_till_date: new Set(tickets.map((row) => row.ticket_id)).size,
+    total_visits_till_date: visits.length,
+    offline_dates: [...new Set(offlineRows.map((row) => row.data_date).filter(Boolean))],
+    repeat_failure_count: Math.max(0, new Set(tickets.map((row) => row.ticket_id)).size - 1),
+    service_requests: tickets,
+    visits,
+    timeline
+  };
 }

@@ -8,10 +8,70 @@ import { OperationsSummaryPanel } from './OperationsSummaryPanel.jsx';
 import { PopRankingPanel } from './PopRankingPanel.jsx';
 import { ServiceAreaProfilePanel } from './ServiceAreaProfilePanel.jsx';
 import { StateTerritoryMap } from './StateTerritoryMap.jsx';
-import { finalizeSummary, getMetricValue, normalizeStateName, sumStateRows } from './territoryUtils.js';
+import { calculatePercentage, finalizeSummary, getMetricValue, getOfflinePercentage, getOfflineSeverityLabelByPercentage, normalizeStateName, sumStateRows } from './territoryUtils.js';
+import { formatNumber } from './format.js';
 
-export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [], overview = {}, onSelectPop }) {
-  const [activeLayer, setActiveLayer] = useState('offline');
+function valueOrDash(value, suffix = '') {
+  if (value === null || value === undefined || value === '') return '—';
+  return `${formatNumber(value)}${suffix}`;
+}
+
+function PanIndiaSummaryPanel({ overview = {}, summary = {}, states = [] }) {
+  const totalSites = overview.total_sites ?? summary.total_sites;
+  const totalOffline = overview.total_offline_sites ?? summary.total_offline;
+  const offlineGt3 = summary.offline_gt_3_days;
+  const offlinePercent = calculatePercentage(totalOffline, totalSites);
+  const avgTat = overview.avg_tat ?? overview.avg_ticket_aging ?? summary.avg_tat;
+  const avgTatUnit = overview.avg_tat_unit || 'days';
+  const riskCounts = states.reduce((counts, state) => {
+    const severity = getOfflineSeverityLabelByPercentage(getOfflinePercentage(state));
+    if (severity === 'Critical') counts.critical += 1;
+    else if (severity === 'Warning' || severity === 'High') counts.warning += 1;
+    else if (severity === 'Normal') counts.good += 1;
+    return counts;
+  }, { critical: 0, warning: 0, good: 0 });
+
+  const rows = [
+    ['Total Sites', totalSites],
+    ['Total Offline Sites', totalOffline],
+    ['Offline > 3 Days', offlineGt3],
+    ['Offline %', offlinePercent === null ? null : `${offlinePercent}%`],
+    ['Open Tickets', summary.open_tickets],
+    ['Pending Tickets', summary.pending_tickets],
+    ['Ticket But No Visit', overview.active_ticket_without_visit],
+    ['Active Engineers', overview.active_engineers ?? summary.active_engineers],
+    ['Total Service Areas', overview.total_pops ?? summary.total_pops],
+    ['Avg TAT', avgTat === null || avgTat === undefined ? null : `${formatNumber(avgTat)} ${avgTatUnit}`]
+  ];
+
+  return (
+    <div className="pan-india-side-summary">
+      <div className="pan-india-summary-heading">
+        <p>PAN India Summary</p>
+        <strong>{valueOrDash(states.length)} states</strong>
+      </div>
+      <dl>
+        {rows.map(([label, value]) => (
+          <React.Fragment key={label}>
+            <dt>{label}</dt>
+            <dd>{typeof value === 'string' ? value : valueOrDash(value)}</dd>
+          </React.Fragment>
+        ))}
+      </dl>
+      {states.length > 0 && (
+        <div className="pan-india-risk-strip">
+          <span><b>{formatNumber(riskCounts.critical)}</b> Critical</span>
+          <span><b>{formatNumber(riskCounts.warning)}</b> Warning</span>
+          <span><b>{formatNumber(riskCounts.good)}</b> Good</span>
+        </div>
+      )}
+      <small>Select a state to view Service Area ranking.</small>
+    </div>
+  );
+}
+
+export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [], overview = {}, onSelectState, onSelectPop }) {
+  const [activeLayer, setActiveLayer] = useState('serviceHealth');
   const [selectedStateKey, setSelectedStateKey] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
   const [hoveredStateAnchor, setHoveredStateAnchor] = useState(null);
@@ -106,6 +166,8 @@ export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [],
     setHoveredPop(null);
     setHoveredPopAnchor(null);
     setHoveredPopBounds(null);
+    onSelectState?.(state);
+    onSelectPop?.(null);
   }
 
   function handleBack() {
@@ -126,6 +188,8 @@ export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [],
     setHoveredPopBounds(null);
     setServiceAreaTerritories(null);
     setTerritoryStatus({ loading: false, error: null });
+    onSelectState?.(null);
+    onSelectPop?.(null);
   }
 
   function handleClickPop(marker, anchor, bounds) {
@@ -249,12 +313,14 @@ export function TerritoryMapCard({ states = [], popMarkers = [], stateRisk = [],
         </div>
 
         <aside className="map-side-panel territory-side-panel">
-          {selectedState && (
+          {selectedState ? (
             <PopRankingPanel
               pops={visiblePops}
               selectedPop={selectedPop || hoveredPop}
               onSelectPop={handleClickPop}
             />
+          ) : (
+            <PanIndiaSummaryPanel overview={overview} summary={panIndiaSummary} states={states} />
           )}
         </aside>
       </div>

@@ -17,6 +17,7 @@ import { RiskPopsPanel, RiskStatesPanel } from './components/RiskPanels.jsx';
 import { StateWiseReport } from './components/StateWiseReport.jsx';
 import { TerritoryCoverageAudit } from './components/TerritoryCoverageAudit.jsx';
 import { TerritoryMapCard } from './components/TerritoryMapCard.jsx';
+import { V3CommandCenter } from './components/V3CommandCenter.jsx';
 
 const COLORS = ['#dc2626', '#f97316', '#f59e0b', '#2563eb', '#10b981', '#7c3aed', '#64748b'];
 
@@ -165,6 +166,7 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [apiStatus, setApiStatus] = useState('loading');
   const [apiFailures, setApiFailures] = useState([]);
+  const [selectedState, setSelectedState] = useState(null);
   const [selectedPop, setSelectedPop] = useState(null);
   const [activeReport, setActiveReport] = useState('full');
   const [adminKey, setAdminKey] = useState(() => sessionStorage.getItem('adminUploadKey') || '');
@@ -185,7 +187,6 @@ export function App() {
       const { data: nextData, failures } = await getDashboardData(emptyDashboard);
       setData(nextData);
       setApiFailures(failures);
-      setSelectedPop((current) => current || nextData.markers[0] || null);
 
       if (failures.length) {
         setApiStatus('partial');
@@ -210,17 +211,6 @@ export function App() {
   const isAdmin = Boolean(adminKey);
 
   const visibleMarkers = data.markers;
-
-  useEffect(() => {
-    if (!visibleMarkers.length) {
-      setSelectedPop(null);
-      return;
-    }
-    const selectedStillVisible = visibleMarkers.some((marker) => marker.service_area_name === selectedPop?.service_area_name);
-    if (!selectedStillVisible) {
-      setSelectedPop(visibleMarkers[0]);
-    }
-  }, [visibleMarkers, selectedPop?.service_area_name]);
 
   const activeOverview = data.overview;
   const formatMetric = (value) => value === null || value === undefined || value === '' ? '—' : formatNumber(value);
@@ -319,6 +309,7 @@ export function App() {
   function handleAdminLogout() {
     sessionStorage.removeItem('adminUploadKey');
     setAdminKey('');
+    if (activeReport === 'dataHealth') setActiveReport('full');
   }
 
   return (
@@ -329,35 +320,27 @@ export function App() {
       <DashboardStatusCard status={apiStatus} failures={apiFailures} />
       {isAdmin && <AdminUploadPanel adminKey={adminKey} onDone={loadDashboard} />}
 
-      <ReportTabs activeReport={activeReport} onChange={setActiveReport} />
+      <ReportTabs activeReport={activeReport} onChange={setActiveReport} showAdminDataHealth={isAdmin} />
 
       {activeReport === 'full' && (
         <>
-          <section className="kpi-grid">
-            {kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
-          </section>
+          <TerritoryMapCard
+            states={data.stateMap}
+            popMarkers={visibleMarkers}
+            stateRisk={data.stateRisk}
+            overview={activeOverview}
+            onSelectState={setSelectedState}
+            onSelectPop={setSelectedPop}
+          />
 
-          <TerritoryMapCard states={data.stateMap} popMarkers={visibleMarkers} stateRisk={data.stateRisk} overview={activeOverview} onSelectPop={setSelectedPop} />
-
-          <TerritoryCoverageAudit />
-
-          <GroundLagFunnel overview={activeOverview} />
-
-          <section className="visual-two-col">
-            <RiskStatesPanel rows={data.stateRisk} />
-            <RiskPopsPanel rows={data.serviceAreaRisk} engineers={data.engineerLoad} />
-          </section>
-
-          <DistributionChart overview={activeOverview} stateOptions={stateOptions} />
-          <EngineerProductivityCards rows={data.engineerLoad} />
-          <ChartsSection breakdowns={data.breakdowns} />
-          <DetailTables data={data} />
+          <V3CommandCenter selectedState={selectedState} selectedPop={selectedPop} />
         </>
       )}
 
       {activeReport === 'state' && <StateWiseReport />}
       {activeReport === 'engineer' && <ReportPlaceholder title="Engineer Wise Report" description="This report will be configured later." />}
       {activeReport === 'customer' && <ReportPlaceholder title="Customer Wise Report" description="This report will be configured later." />}
+      {activeReport === 'dataHealth' && isAdmin && <TerritoryCoverageAudit />}
     </DashboardLayout>
   );
 }

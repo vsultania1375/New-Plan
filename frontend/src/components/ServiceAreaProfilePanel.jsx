@@ -105,6 +105,12 @@ export function ServiceAreaProfilePanel({ selectedServiceArea }) {
   const coverage = profile?.site_coverage || {};
   const ownership = profile?.ownership || {};
   const lists = profile?.lists || {};
+  const engineerId = ownership.active_engineer_id || ownership.engineer_id || ownership.employee_id;
+  const ownershipMapped = Boolean(
+    ownership.active_engineer_name
+    || engineerId
+    || (ownership.active_engineer_status && ownership.active_engineer_status !== 'Mapping Pending')
+  );
 
   const healthCards = useMemo(() => [
     { label: 'Total Sites', value: valueOrDash(health.total_sites), icon: ShieldCheck },
@@ -144,7 +150,9 @@ export function ServiceAreaProfilePanel({ selectedServiceArea }) {
           <h2>{serviceAreaName || 'Selected Service Area'}</h2>
           <span>{state || '—'}{profile?.service_area_code ? ` · Code ${profile.service_area_code}` : ''}</span>
         </div>
-        <span className="mapping-pending">Ownership Mapping Pending</span>
+        <span className={ownershipMapped ? 'ownership-mapped' : 'mapping-pending'}>
+          {ownershipMapped ? 'Ownership Mapped' : 'Ownership Mapping Pending'}
+        </span>
       </div>
 
       {loading && <div className="service-profile-empty">Loading Service Area Profile…</div>}
@@ -162,9 +170,10 @@ export function ServiceAreaProfilePanel({ selectedServiceArea }) {
               <div><span>State</span><strong>{profile.state || '—'}</strong></div>
               <div><span>State Head</span><strong>{ownership.state_head_name || ownership.state_head_status || 'Mapping Pending'}</strong></div>
               <div><span>Active Engineer</span><strong>{ownership.active_engineer_name || ownership.active_engineer_status || 'Mapping Pending'}</strong></div>
-              <div><span>Backup Engineer</span><strong>{ownership.backup_engineer_name || '—'}</strong></div>
-              <div><span>Engineer Manager</span><strong>{ownership.engineer_manager || '—'}</strong></div>
+              <div><span>Engineer ID</span><strong>{engineerId || '—'}</strong></div>
+              <div><span>Manager</span><strong>{ownership.engineer_manager || '—'}</strong></div>
               <div><span>Engineer Phone</span><strong><Phone size={13} /> {ownership.engineer_phone || '—'}</strong></div>
+              <div><span>Backup Engineer</span><strong>{ownership.backup_engineer_name || '—'}</strong></div>
               <div><span>Assignment Start Date</span><strong>{ownership.assignment_start_date || '—'}</strong></div>
             </div>
           </div>

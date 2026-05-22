@@ -14,7 +14,9 @@ import {
   getStateMapData,
   getStateRisk,
   getTerritoryCoverageAudit,
-  getTicketWithoutVisit
+  getTicketWithoutVisit,
+  getV3CommandCenter,
+  getV3SiteIntelligence
 } from '../services/analyticsService.js';
 
 export const analyticsRoutes = express.Router();
@@ -129,6 +131,25 @@ analyticsRoutes.get('/tables/engineer-load', async (_req, res, next) => {
 analyticsRoutes.get('/breakdowns', async (_req, res, next) => {
   try {
     res.json(await getBreakdowns());
+  } catch (error) {
+    next(error);
+  }
+});
+
+analyticsRoutes.get('/v3/command-center', async (req, res, next) => {
+  try {
+    res.json(await getV3CommandCenter({
+      state: req.query.state,
+      serviceArea: req.query.serviceArea
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+analyticsRoutes.get('/v3/site-intelligence', async (req, res, next) => {
+  try {
+    res.json(await getV3SiteIntelligence({ siteId: req.query.siteId }));
   } catch (error) {
     next(error);
   }

@@ -17,7 +17,7 @@ function FitToIndia({ selectedBounds, indiaBounds }) {
 
   useEffect(() => {
     if (selectedBounds) {
-      map.fitBounds(selectedBounds, { padding: [24, 24], maxZoom: 7 });
+      map.fitBounds(selectedBounds, { padding: [24, 24], maxZoom: 9 });
       return;
     }
     if (indiaBounds?.isValid()) {
@@ -325,9 +325,9 @@ export function StateTerritoryMap({
   };
 
   return (
-    <MapContainer center={[22.9, 79.8]} zoom={5} minZoom={4} maxZoom={9} scrollWheelZoom className="india-map territory-map">
+    <MapContainer center={[22.9, 79.8]} zoom={5} minZoom={4} maxZoom={12} scrollWheelZoom className="india-map territory-map">
       <FitToIndia selectedBounds={selectedBounds} indiaBounds={indiaBounds} />
-      <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={12} maxNativeZoom={12} />
       <Pane name="state-territory-pane" style={{ zIndex: 410 }}>
         {geoJson && (
           <GeoJSON

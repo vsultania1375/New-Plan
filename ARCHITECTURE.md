@@ -256,6 +256,7 @@ Open:
 
 - Offline workbook uses `B2B` sheet with headers on row 2.
 - `ViewTicket` is a current FSM dump, not historical data.
+- Site denominator rule: use all sites in the selected scope. Do not filter `customer_site_master.active_status` yet. Any `active_sites` API field is compatibility naming only.
 - Employee ID is parsed from `Ticket Assigned To` text like `Engineer Name (EMP_ID)`.
 - Service area is currently mostly name-based, not code-based.
 - Full route/visit planning is future work.

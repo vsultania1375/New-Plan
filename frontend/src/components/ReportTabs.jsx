@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Building2, MapPinned, Users } from 'lucide-react';
+import { BarChart3, Building2, DatabaseZap, MapPinned, Users } from 'lucide-react';
 
 const REPORT_TABS = [
   { key: 'full', label: 'Full Report', icon: BarChart3 },
@@ -8,10 +8,13 @@ const REPORT_TABS = [
   { key: 'customer', label: 'Customer Wise', icon: Building2 }
 ];
 
-export function ReportTabs({ activeReport, onChange }) {
+export function ReportTabs({ activeReport, onChange, showAdminDataHealth = false }) {
+  const tabs = showAdminDataHealth
+    ? [...REPORT_TABS, { key: 'dataHealth', label: 'Admin Data Health', icon: DatabaseZap }]
+    : REPORT_TABS;
   return (
     <nav className="report-tabs" aria-label="Report views">
-      {REPORT_TABS.map((tab) => {
+      {tabs.map((tab) => {
         const Icon = tab.icon;
         return (
         <button
