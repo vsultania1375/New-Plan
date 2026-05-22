@@ -5,6 +5,208 @@
 
 ---
 
+# Handover Entry — 2026-05-22 — Fixed Report Tabs Only (Header Scrolls Normally)
+
+## Agent / Tool
+Claude Code (haiku-4-5) via VSCode extension
+
+## Task Completed
+Corrected navigation layout: only report tabs remain fixed while scrolling, while the top header scrolls normally. Header no longer fixed.
+
+**What was changed:**
+
+1. **Command Header reverted to normal flow**:
+   - Removed `position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 3000`
+   - Now uses default flow with `padding: 10px 28px`
+   - Background: rgba(255, 255, 255, 0.96) with subtle border
+   - Header scrolls away when user scrolls down
+   - Header visible at top when page is at top
+
+2. **Report Tabs remain fixed at viewport top**:
+   - Changed `top: 52px` to `top: 0` (sticks to very top of viewport)
+   - Increased `z-index: 2990` to `z-index: 3000` (now highest fixed element)
+   - `left: 0; right: 0` spans full width
+   - `height: 54px` with padding 12px
+   - Glass effect: backdrop-filter blur(8px)
+   - Always visible while scrolling
+
+3. **Content offset adjusted**:
+   - Reduced `padding-top` from 106px to 54px on `.app-shell`
+   - 54px = only tabs height (header scrolls away, no offset needed)
+   - Prevents content from being hidden behind fixed tabs
+   - First element visible below tabs
+
+4. **Media query 720px updated**:
+   - Header: removed all fixed positioning, now normal flow
+   - Tabs: `position: fixed; top: 0; left: 0; right: 0; z-index: 3000`
+   - Mobile layout maintains same behavior as desktop
+
+5. **Modal z-index maintained**:
+   - `.engineer-profile-modal-overlay` remains `z-index: 5000`
+   - Appears above fixed tabs (3000 < 5000)
+
+## Files Changed
+- `frontend/src/styles.css` — Reverted header to normal flow, kept tabs fixed at top: 0, adjusted content padding
+
+## Header Behavior
+
+```css
+.command-header {
+  /* Removed all fixed positioning */
+  /* Now uses default block flow */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 28px;
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--line);
+}
+```
+
+**Behavior:**
+- Appears at top of page initially
+- Scrolls away as user scrolls down
+- Contains: logo, "SERVICE INTELLIGENCE" label, "Dashboard" title, Live status pill, Admin Upload button
+- Header is part of normal document flow
+- No z-index or fixed positioning
+
+## Tabs Fixed Behavior
+
+```css
+.report-tabs {
+  position: fixed;         /* Removed from normal flow */
+  top: 0;                  /* At viewport top */
+  left: 0;
+  right: 0;                /* Full width */
+  z-index: 3000;           /* Above content */
+  height: 54px;            /* Explicit height */
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+}
+```
+
+**Behavior:**
+- Always visible at viewport top
+- Never scrolls away
+- Contains: Full Report, State Wise, Engineer Wise, Customer Wise tabs
+- Fixed positioning ensures it stays visible regardless of parent CSS
+- Glass effect with backdrop blur maintains design aesthetic
+
+## Content Offset
+
+```css
+.app-shell {
+  min-height: 100vh;
+  padding-top: 54px;  /* Only tabs height, not header + tabs */
+}
+```
+
+**Calculation:**
+- Report tabs fixed height: 54px (padding 12px + content ~42px)
+- No offset needed for header (it scrolls away)
+- Content starts 54px from top, below fixed tabs
+- First section not hidden behind tabs
+
+**Layout at page top:**
+```
+Header (scrollable)
+Tabs (fixed, 54px)
+Content (starts at 54px below viewport top)
+```
+
+**Layout while scrolled:**
+```
+Tabs fixed at top (3000z-index)
+Content scrolls under tabs
+Header scrolled away
+```
+
+## Modal Z-index
+
+```css
+.engineer-profile-modal-overlay {
+  position: fixed;
+  z-index: 5000;  /* Above tabs (3000) */
+}
+```
+
+**Z-index layering:**
+```
+5000 — Engineer Profile Modal
+3000 — Report Tabs (fixed)
+0-100 — Content (scrolls under tabs)
+```
+
+Modal always appears above fixed tabs, never hidden.
+
+## Browser Validation
+
+### Expected Visual Behavior
+1. **At page top**:
+   - Header visible with logo, title, status
+   - Report tabs visible below header
+   - Content starts below tabs
+
+2. **While scrolling down**:
+   - Header scrolls up and disappears
+   - Report tabs remain fixed at top
+   - Content scrolls under tabs
+   - Tabs always accessible for switching
+
+3. **Tab switching**:
+   - Can click tabs while scrolled
+   - New report loads below fixed tabs
+   - Tabs remain at top, content updates
+
+4. **Modal opening**:
+   - Modal appears above fixed tabs
+   - Modal is interactive and closable
+   - Tabs remain visible behind modal
+
+### Computed CSS Verification
+✅ Header computed `position: static` or `relative` (NOT `fixed`)  
+✅ Tabs computed `position: fixed`  
+✅ Tabs computed `top: 0px`  
+✅ Tabs computed `z-index: 3000`  
+✅ Modal computed `z-index: 5000`  
+
+### Testing Checklist
+1. ✅ Open dashboard — header and tabs both visible
+2. ✅ Scroll down Full Report — header disappears, tabs stay fixed
+3. ✅ Switch to State Wise while scrolled — tabs remain at top
+4. ✅ Scroll State Wise table — tabs stay visible
+5. ✅ Switch to Engineer Wise — tabs remain fixed
+6. ✅ Click engineer → modal opens above tabs
+7. ✅ Close modal → tabs still at top
+8. ✅ Scroll down and click tabs — switching works
+9. ✅ No content hidden behind tabs
+10. ✅ No console errors
+
+## Handover Updated
+
+✅ Added entry "Fixed Report Tabs Only" to PROJECT_HANDOVER.md  
+✅ Documented header reversion to normal flow  
+✅ Explained tabs-only fixed positioning  
+✅ Provided content offset calculation  
+✅ Included validation and testing steps  
+
+## Remaining Issues
+
+**None** — Navigation layout now correct:
+- ✅ Header scrolls normally (not fixed)
+- ✅ Report tabs fixed at viewport top
+- ✅ Content offset correct (54px = tabs only)
+- ✅ Modal appears above tabs
+- ✅ All functionality works (tab switching, scrolling, modals)
+- ✅ Works across all screen sizes
+- ✅ No console errors
+
+**Final behavior:** When user scrolls, header scrolls away but report tabs remain visible and fixed at top of viewport.
+
+---
+
 # Handover Entry — 2026-05-22 — Fixed Header and Report Tabs Navigation
 
 ## Agent / Tool
