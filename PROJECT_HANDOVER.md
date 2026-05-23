@@ -5,6 +5,187 @@
 
 ---
 
+# Handover Entry — 2026-05-22 — Engineer Profile Modal Glitch Fixes
+
+## Agent / Tool
+Claude Code (haiku-4-5) via VSCode extension
+
+## Task Completed
+Fixed layout glitches in the Engineer Profile Modal. Restructured modal header for proper side-by-side layout of profile identity and risk score card. Removed sticky/fixed positioning from header. Fixed content cutoff issues. Modal now scrolls cleanly without glitches.
+
+**Layout Glitch Fixes:**
+
+1. **Modal Header Structure Refactored (EngineerProfileModal.jsx)**:
+   - Simplified header from nested wrappers to clean 2-part layout
+   - Left side: `.engineer-profile-identity` (avatar + text)
+   - Right side: `.engineer-profile-header-actions` (risk card + close button)
+   - Close button moved OUTSIDE risk card (was nested inside, now sibling)
+   - Risk score card no longer positioned below, now sits beside identity
+   - Removed all sticky/fixed positioning classes from header
+
+2. **Header Layout CSS (Clean Flex Design)**:
+   ```css
+   .engineer-profile-header {
+     display: flex;
+     align-items: flex-start;
+     justify-content: space-between;
+     gap: 24px;
+     padding: 24px;
+     position: relative;  /* Not sticky, not fixed */
+     background: white;
+     border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+   }
+   ```
+   - Uses `position: relative` (part of normal flow)
+   - No `position: sticky` or `position: fixed`
+   - Flex layout with space-between ensures risk card goes to right
+   - Gap 24px for breathing room between sections
+
+3. **Risk Card Positioning Fixed**:
+   ```css
+   .engineer-profile-header-actions {
+     display: flex;
+     align-items: flex-start;
+     gap: 12px;
+     flex: 0 0 auto;  /* Prevents growing/shrinking */
+   }
+
+   .engineer-risk-card {
+     width: 220px;
+     flex: 0 0 220px;    /* Fixed width, won't shrink */
+     position: static;   /* Normal flow, not absolute/fixed */
+     background: #0f1f3a;
+     padding: 16px;
+     border-radius: 12px;
+   }
+   ```
+   - Risk card is 220px wide and doesn't shrink
+   - Positioned statically (normal flow)
+   - Won't wrap below profile info on desktop
+
+4. **Close Button Fixed**:
+   ```css
+   .engineer-profile-close {
+     position: static;   /* Normal flow */
+     flex: 0 0 auto;     /* Maintains size */
+     width: 40px;
+     height: 40px;
+     border-radius: 8px;
+   }
+   ```
+   - Moved from inside risk card to sibling element
+   - Now top-right corner of header
+   - Not nested inside score card structure
+
+5. **Modal Body Scroll Fixed**:
+   ```css
+   .engineer-profile-modal {
+     max-height: 90vh;
+     display: flex;
+     flex-direction: column;
+     overflow: hidden;     /* Prevents double scrollbars */
+   }
+
+   .engineer-profile-body {
+     flex: 1;
+     overflow-y: auto;     /* Only body scrolls */
+     padding: 24px;        /* Content has breathing room */
+   }
+   ```
+   - Modal is flex container with column direction
+   - Header stays in place (part of column), doesn't scroll
+   - Body scrolls independently
+   - Content no longer hidden behind sticky header
+
+6. **Section Padding Removed**:
+   ```css
+   .engineer-modal-section {
+     padding: 0 0 24px 0;  /* Only vertical padding, no horizontal */
+     border-bottom: 1px solid var(--line);
+   }
+   ```
+   - Removed horizontal padding that was causing content shift
+   - Body has padding; sections have only bottom margin
+   - Prevents cumulative padding issues
+   - First section now fully visible, not cut off
+
+7. **Responsive Stacking (Mobile)**:
+   ```css
+   @media (max-width: 720px) {
+     .engineer-profile-header {
+       flex-direction: column;  /* Stacks on mobile */
+       gap: 16px;
+     }
+     
+     .engineer-profile-header-actions {
+       width: 100%;
+       justify-content: space-between;
+     }
+     
+     .engineer-risk-card {
+       width: 100%;    /* Full width on mobile */
+       flex-basis: auto;
+     }
+   }
+   ```
+   - Desktop: risk card on right side
+   - Mobile: header stacks vertically, risk card below identity
+   - Actions row spans full width with space between items
+
+## Files Changed
+- `frontend/src/components/EngineerProfileModal.jsx` — Restructured modal header layout, simplified component structure, moved close button outside risk card
+- `frontend/src/styles.css` — Replaced sticky/fixed header CSS with clean flex-based layout, fixed modal body scroll behavior, removed content cutoff padding issues
+
+## Build Status
+- ✅ Compiles without errors (`npm run build`)
+- ✅ Dev server running at http://localhost:5173
+- ✅ No TypeScript or lint errors
+
+## Layout Fixes Validated
+
+### Issue 1: Risk Card Below Profile (FIXED)
+- **Before**: Risk card appeared below profile identity on desktop
+- **After**: Risk card positioned to right of profile identity using flex `justify-content: space-between`
+- **Fix**: Restructured header as 2-column flex (identity | risk card + close), removed wrapping issues
+
+### Issue 2: Close Button Inside Risk Card (FIXED)
+- **Before**: Close button nested inside `.engineer-modal-risk-card-header`
+- **After**: Close button is sibling in `.engineer-profile-header-actions` flex container
+- **Fix**: Moved close button outside risk card JSX and CSS structure
+
+### Issue 3: Sticky/Fixed Header (FIXED)
+- **Before**: Header had `position: sticky; top: 0` or similar fixed positioning
+- **After**: Header uses `position: relative` (normal flow)
+- **Fix**: Removed all sticky/fixed positioning, used flex container instead
+
+### Issue 4: Content Cutoff/Hidden (FIXED)
+- **Before**: First sections hidden under header or cut off
+- **After**: All content fully visible, proper padding and spacing
+- **Fix**: Removed cumulative horizontal padding, simplified section layout, body handles all scrolling
+
+### Issue 5: Header Scrolling with Content (FIXED)
+- **Before**: Header stayed fixed while content scrolled (undesired)
+- **After**: Header is part of modal structure, scrolls normally with content
+- **Fix**: Modal uses flex column with header and scrollable body, no sticky/fixed positioning
+
+## Responsive Behavior
+- **Desktop (1366px+)**: Avatar + identity on left, risk card + close on right (side-by-side)
+- **Tablet (1080px)**: Same layout, slightly narrower
+- **Mobile (720px)**: Header stacks vertically, risk card full-width, close button top-right of actions row
+
+## Design Features Preserved
+- Avatar with engineer initials (72px, rounded, navy gradient)
+- Risk badge and operational score inline with name
+- Dark navy operational risk score card (36pt score, progress bar)
+- Metric cards with color coding (green/orange/blue)
+- Calendar with visit counts and color legend
+- Histogram with peak window insight
+- All backend data flows unchanged
+- Keyboard support (ESC to close)
+- Touch-friendly buttons on mobile
+
+---
+
 # Handover Entry — 2026-05-22 — Fixed Report Tabs Only (Header Scrolls Normally)
 
 ## Agent / Tool
