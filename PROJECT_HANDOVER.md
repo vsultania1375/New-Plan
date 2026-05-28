@@ -5595,3 +5595,189 @@ Added the Engineer Wise Report foundation with backend read-only APIs and a live
   - row click opens detail panel.
   - calendar renders 30 days.
   - hour histogram renders 24 buckets.
+
+# Handover Entry — 2026-05-25 (Full Report map UI polish)
+
+Polished the Full Report map UI with a lighter glass navigation bar and simplified Service Health map severity colors.
+
+## Files Updated
+- `frontend/src/components/territoryUtils.js`
+- `frontend/src/components/MapLegend.jsx`
+- `frontend/src/components/MapInfoPanel.jsx`
+- `frontend/src/components/TerritoryMapCard.jsx`
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Navigation Bar Transparency
+- Updated `.report-tabs` from an almost solid white strip to a semi-transparent glass surface.
+- Added stronger backdrop blur/saturation, soft bottom border, and lighter shadow.
+- Refined tab hover and active states so the nav stays readable while feeling lighter over the map.
+
+## Map Color System Simplified
+- Service Health severity now uses only:
+  - Good = green
+  - Warning = yellow
+  - Critical = red
+  - No Data = grey
+- Removed the old `High` / orange severity band from the shared map health helper.
+- State polygons in PAN India Service Health mode and Service Area polygons in selected-state mode use the same shared helper.
+
+## New Thresholds
+- Good: `0-2%`
+- Warning: `>2-5%`
+- Critical: `>5%`
+- Missing/invalid values: No Data grey.
+
+## Legend Sync
+- `MapLegend` renders the Service Health and Offline Frequency scale from `SERVICE_HEALTH_LEGEND` and `SERVICE_HEALTH_COLORS`.
+- The health legend now shows exactly 3 bars and uses the same colors as polygon fills.
+
+## Validation
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JavaScript syntax check: passed.
+- `/api/health`: passed with `dbConnected: true`.
+- `/api/analytics/overview`: passed.
+- Helper check passed:
+  - `1%` resolves to Good / green.
+  - `3%` resolves to Warning / yellow.
+  - `6%` resolves to Critical / red.
+  - missing values resolve to No Data / grey.
+- Browser smoke passed:
+  - Full Report opens.
+  - fixed report tabs use `rgba(255, 255, 255, 0.68)` with backdrop blur.
+  - Service Health legend shows exactly 3 bars.
+  - PAN India Service Health polygons use green / yellow / red.
+  - selected-state Service Area polygons use green / yellow / red.
+  - selected-state Service Area ranking still renders.
+  - no browser console errors observed.
+
+# Handover Entry — 2026-05-25 (report tabs sticky under header)
+
+Restored the report navigation to normal document flow under the logo/header at the top of the page, then sticky at the viewport top only after scrolling.
+
+## Files Updated
+- `frontend/src/styles.css`
+- `PROJECT_HANDOVER.md`
+
+## Header Behavior
+- `.command-header` remains in normal flow and is explicitly non-fixed.
+- The logo/header row appears above the report tabs at the top of the page.
+- The header scrolls away normally as the user scrolls.
+
+## Report Tabs Behavior
+- `.report-tabs` changed from `position: fixed` to `position: sticky`.
+- Tabs use `top: 0` and stay visible at the top only after the header scrolls away.
+- The light glass styling remains, now with `rgba(255, 255, 255, 0.88)` for better readability.
+
+## Removed Fixed Offset
+- Removed the old `.app-shell` `padding-top: 54px` that was only needed for fixed tabs.
+- Content now starts naturally after the sticky tabs in document flow.
+
+## Validation
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JavaScript syntax check: passed.
+- `/api/health`: passed with `dbConnected: true`.
+- `/api/analytics/overview`: passed.
+- Browser smoke passed:
+  - At page top, header position is `relative`, tabs position is `sticky`, and tabs sit below the header.
+  - `.app-shell` padding-top is `0px`.
+  - `#root` and `body` use `overflow-x: clip`, avoiding the sticky-breaking `overflow-x: hidden` parent behavior.
+  - After scrolling, the header scrolls away and tabs stick at viewport `top: 0`.
+  - State Wise and Engineer Wise keep sticky tabs while scrolling.
+  - Customer Wise still renders; because the placeholder is short, the page naturally returns to top with tabs below the header.
+  - no browser console errors observed.
+
+# Handover Entry — 2026-05-28 (deployment readiness for public demo)
+
+Prepared the dashboard for a safe Render + Supabase management demo without deploying or changing business logic.
+
+## Files Updated / Created
+- `frontend/src/api.js`
+- `backend/src/config/env.js`
+- `backend/src/db/pool.js`
+- `backend/src/server.js`
+- `backend/.env.example`
+- `frontend/.env.example`
+- `.env.example`
+- `ARCHITECTURE.md`
+- `DEPLOYMENT_GUIDE.md`
+- `PROJECT_HANDOVER.md`
+
+## Frontend Deployment Config
+- Added support for `VITE_API_BASE_URL`.
+- Kept backward compatibility for existing `VITE_API_BASE`.
+- API base normalization now supports both:
+  - `https://backend-url.onrender.com`
+  - `https://backend-url.onrender.com/api`
+- Local fallback remains `http://localhost:4000`.
+
+## Backend Deployment Config
+- Added `CORS_ORIGIN` support with `FRONTEND_ORIGIN` as a backward-compatible alias.
+- CORS remains restricted to configured origins; it is not open `*`.
+- Localhost origins remain allowed automatically outside production.
+- Added optional `DATABASE_SSL=true` support for hosted Postgres providers such as Supabase.
+
+## Deployment Guide
+- Added `DEPLOYMENT_GUIDE.md` covering:
+  - Supabase schema setup
+  - Render backend Web Service setup
+  - Render frontend Static Site setup
+  - required environment variables
+  - upload/data-loading options
+  - health checks
+  - demo security notes
+
+## Large File / GeoJSON Notes
+- Frontend map uses `frontend/public/geo/india-states.geojson` (~0.69 MB).
+- Backend territory APIs read `geo-source/india-pincodes-opencity.geojson` (~72.88 MB) at runtime and cache it in memory.
+- Root `india-pincode.geojson` is ~225.06 MB and does not appear to be used by current runtime code; it may slow clone/deploy but was not removed.
+
+## Validation
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JavaScript syntax check: passed.
+- Frontend API module import check: passed.
+- Env config check passed with local defaults:
+  - `nodeEnv = development`
+  - `databaseSsl = false`
+  - CORS origins include localhost and 127.0.0.1.
+- Live `/api/health` and `/api/analytics/overview` checks could not run because the backend server was not running locally at the time of validation.
+
+## Deployment Status
+- Not deployed.
+- No real secrets were added.
+- No schema, formula, upload, or dashboard logic changes were made.
+
+# Handover Entry — 2026-05-28 (deploy-size cleanup before Render)
+
+Moved the unused large root pincode GeoJSON out of the deploy path before Render deployment.
+
+## Usage Check
+- Searched runtime/backend/frontend references for:
+  - `india-pincode.geojson`
+  - `india-pincodes-opencity.geojson`
+  - `india-states.geojson`
+- Runtime code does not use root `india-pincode.geojson`.
+- Backend territory APIs use `geo-source/india-pincodes-opencity.geojson`.
+- Frontend state map uses `frontend/public/geo/india-states.geojson`.
+
+## File Move
+- Moved:
+  - from `india-pincode.geojson`
+  - to `archive/old-geo/india-pincode.geojson`
+- Size moved: ~225.06 MB.
+- Kept:
+  - `geo-source/india-pincodes-opencity.geojson` (~72.88 MB)
+  - `frontend/public/geo/india-states.geojson` (~0.69 MB)
+
+## Deploy Size Note
+- Added `archive/old-geo/*.geojson` to `.gitignore`.
+- For Render deploy-size cleanup, the archived file should remain local/untracked and should not be added back to Git.
+- `DEPLOYMENT_GUIDE.md` was updated to reflect the moved archive file.
+
+## Validation
+- `npm run build --prefix frontend`: passed with existing Vite large chunk warning.
+- Backend JavaScript syntax check: passed.
+
+## Deployment Status
+- Not deployed.
+- No backend logic, frontend logic, APIs, formulas, schema, or upload behavior changed.

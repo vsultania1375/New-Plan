@@ -27,6 +27,7 @@ date-filters-removed.png
 geo-source/india-pincode.geojson
 geo-source/*.kmz
 geo-source/opencity-kmz-extracted/
+archive/old-geo/*.geojson
 
 # Imported mapping workbooks; keep templates in Git, imports local
 ServiceAreaPincodeMapping*.xlsx
