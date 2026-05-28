@@ -8,7 +8,15 @@ import { v3Routes } from './routes/v3Routes.js';
 
 const app = express();
 
-app.use(cors({ origin: env.frontendOrigin }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || env.corsOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error(`CORS origin not allowed: ${origin}`));
+  }
+}));
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/api/health', async (_req, res) => {

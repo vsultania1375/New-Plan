@@ -1,4 +1,8 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
+const viteEnv = import.meta.env || {};
+const API_BASE_URL = viteEnv.VITE_API_BASE_URL || viteEnv.VITE_API_BASE || 'http://localhost:4000';
+const API_BASE = API_BASE_URL.replace(/\/$/, '').endsWith('/api')
+  ? API_BASE_URL.replace(/\/$/, '')
+  : `${API_BASE_URL.replace(/\/$/, '')}/api`;
 
 async function request(path, options) {
   let response;

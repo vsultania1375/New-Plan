@@ -238,9 +238,17 @@ Backend environment variables:
 
 - `PORT`: backend port, default `4000`.
 - `DATABASE_URL`: PostgreSQL connection string.
-- `FRONTEND_ORIGIN`: allowed frontend origin, default `http://localhost:5173`.
+- `CORS_ORIGIN`: allowed frontend origin(s), comma-separated for multiple origins. Default local origin is `http://localhost:5173`.
+- `FRONTEND_ORIGIN`: backward-compatible alias for `CORS_ORIGIN`.
+- `DATABASE_SSL`: set `true` for hosted Postgres providers such as Supabase when SSL is required.
+- `NODE_ENV`: use `production` on hosted services.
 - `UPLOAD_DIR`: temporary upload folder.
 - `ADMIN_UPLOAD_KEY`: local admin key for upload/import routes.
+
+Frontend environment variables:
+
+- `VITE_API_BASE_URL`: backend base URL, for example `https://your-backend-url.onrender.com`. Local fallback is `http://localhost:4000`.
+- `VITE_API_BASE`: older backward-compatible API base variable; `VITE_API_BASE_URL` is preferred.
 
 ## Local Commands
 
