@@ -73,10 +73,10 @@ function getPanelModel({ hoveredState, selectedState, selectedPop, panIndiaSumma
   const severityLabel = getOfflineSeverityLabelByPercentage(offlinePercent);
   const riskTone = severityLabel === 'Critical'
     ? 'critical'
-    : severityLabel === 'High'
-    ? 'high'
     : severityLabel === 'Warning'
     ? 'warning'
+    : severityLabel === 'Good'
+    ? 'good'
     : 'normal';
 
   const rows = getRows(state);

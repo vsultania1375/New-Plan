@@ -26,8 +26,8 @@ function PanIndiaSummaryPanel({ overview = {}, summary = {}, states = [] }) {
   const riskCounts = states.reduce((counts, state) => {
     const severity = getOfflineSeverityLabelByPercentage(getOfflinePercentage(state));
     if (severity === 'Critical') counts.critical += 1;
-    else if (severity === 'Warning' || severity === 'High') counts.warning += 1;
-    else if (severity === 'Normal') counts.good += 1;
+    else if (severity === 'Warning') counts.warning += 1;
+    else if (severity === 'Good') counts.good += 1;
     return counts;
   }, { critical: 0, warning: 0, good: 0 });
 

@@ -46,12 +46,12 @@ export function MapLegend({ activeLayer, maxValue, className = '' }) {
     className: `map-legend-${layer?.tone || 'blue'}`,
     text: maxValue ? 'Darker color means higher value.' : 'Data pending for this layer.'
   };
-  const segmentCount = legend.className === 'map-legend-health' ? 4 : 3;
+  const segmentCount = 3;
   const healthScale = activeLayer === 'serviceHealth' || activeLayer === 'offlineFrequency';
 
   return (
     <div className={`map-legend ${legend.className} ${className}`.trim()}>
-      <div className={`legend-scale ${segmentCount === 4 ? 'legend-scale-four' : ''}`} aria-hidden="true">
+      <div className="legend-scale" aria-hidden="true">
         {healthScale
           ? SERVICE_HEALTH_LEGEND.map((item) => (
             <i key={item.key} style={{ background: SERVICE_HEALTH_COLORS[item.key] }} />

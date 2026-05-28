@@ -18,7 +18,6 @@
   --red-soft: #fbefee;
   --severity-normal: #2E7D32;
   --severity-warning: #D6A100;
-  --severity-high: #E67E22;
   --severity-critical: #C0392B;
   --severity-no-data: #CBD5E1;
   --shadow: 0 10px 24px rgba(16, 35, 63, 0.07);
@@ -29,7 +28,7 @@
 }
 
 html {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -39,7 +38,7 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 button,
@@ -67,7 +66,7 @@ button {
 #root {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 button:disabled {
@@ -77,10 +76,14 @@ button:disabled {
 
 .app-shell {
   min-height: 100vh;
-  padding-top: 54px;
 }
 
 .command-header {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  z-index: auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -241,22 +244,20 @@ button:disabled {
 }
 
 .report-tabs {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
   z-index: 3000;
   margin: 0;
   display: flex;
   gap: 4px;
   padding: 12px 12px 0;
   height: 54px;
-  background: rgba(255, 255, 255, 0.97);
+  background: rgba(255, 255, 255, 0.88);
   border: 0;
   border-bottom: 1px solid rgba(148, 163, 184, 0.22);
-  box-shadow: 0 1px 4px rgba(16, 35, 63, 0.03);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+  backdrop-filter: blur(10px) saturate(135%);
+  -webkit-backdrop-filter: blur(10px) saturate(135%);
 }
 
 .report-tab {
@@ -266,22 +267,25 @@ button:disabled {
   gap: 8px;
   padding: 0 16px;
   color: #253247;
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 10px 10px 0 0;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+  border-radius: 12px 12px 0 0;
   font-size: 14px;
 }
 
 .report-tab:hover {
   color: var(--brand-navy);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.42);
+  border-color: rgba(148, 163, 184, 0.2);
 }
 
 .report-tab.active {
   color: var(--brand-navy);
-  background: transparent;
-  border-bottom-color: var(--brand-navy);
+  background: rgba(255, 255, 255, 0.76);
+  border-color: rgba(148, 163, 184, 0.26);
+  border-bottom-color: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.45) inset, 0 8px 18px rgba(15, 23, 42, 0.06);
   font-weight: 800;
 }
 
@@ -2512,10 +2516,6 @@ select:focus {
   min-width: 0;
 }
 
-.legend-scale-four {
-  grid-template-columns: repeat(4, 1fr);
-}
-
 .legend-scale i {
   height: 7px;
   min-width: 0;
@@ -2527,8 +2527,7 @@ select:focus {
 .map-legend-blue .legend-scale i:nth-child(3) { background: #1d4ed8; }
 .map-legend-red .legend-scale i:nth-child(1) { background: var(--severity-normal); }
 .map-legend-red .legend-scale i:nth-child(2) { background: var(--severity-warning); }
-.map-legend-red .legend-scale i:nth-child(3) { background: var(--severity-high); }
-.map-legend-red .legend-scale i:nth-child(4) { background: var(--severity-critical); }
+.map-legend-red .legend-scale i:nth-child(3) { background: var(--severity-critical); }
 .map-legend-orange .legend-scale i:nth-child(1) { background: #ead6bb; }
 .map-legend-orange .legend-scale i:nth-child(2) { background: #b57a31; }
 .map-legend-orange .legend-scale i:nth-child(3) { background: #94591e; }
@@ -2537,8 +2536,7 @@ select:focus {
 .map-legend-green .legend-scale i:nth-child(3) { background: #3f7d5a; }
 .map-legend-health .legend-scale i:nth-child(1) { background: var(--severity-normal); }
 .map-legend-health .legend-scale i:nth-child(2) { background: var(--severity-warning); }
-.map-legend-health .legend-scale i:nth-child(3) { background: var(--severity-high); }
-.map-legend-health .legend-scale i:nth-child(4) { background: var(--severity-critical); }
+.map-legend-health .legend-scale i:nth-child(3) { background: var(--severity-critical); }
 .map-legend-load .legend-scale i:nth-child(1) { background: #fed7aa; }
 .map-legend-load .legend-scale i:nth-child(2) { background: #f97316; }
 .map-legend-load .legend-scale i:nth-child(3) { background: #c2410c; }
@@ -2843,10 +2841,6 @@ select:focus {
 .badge.warning {
   color: #172033;
   background: var(--severity-warning);
-}
-
-.badge.high {
-  background: var(--severity-high);
 }
 
 .badge.good,
@@ -4637,11 +4631,11 @@ tbody tr:hover td {
   }
 
   .report-tabs {
-    position: fixed;
+    position: sticky;
     top: 0;
-    left: 0;
-    right: 0;
     z-index: 3000;
+    margin-left: 0;
+    margin-right: 0;
     padding-left: 14px;
     padding-right: 14px;
     overflow-x: auto;

@@ -12,7 +12,6 @@ export const MAP_LAYERS = [
 export const SERVICE_HEALTH_COLORS = {
   good: '#2E7D32',
   warning: '#D6A100',
-  high: '#E67E22',
   critical: '#C0392B',
   noData: '#CBD5E1'
 };
@@ -20,8 +19,7 @@ export const SERVICE_HEALTH_COLORS = {
 export const SERVICE_HEALTH_LEGEND = [
   { key: 'good', label: 'Good', range: '0–2%' },
   { key: 'warning', label: 'Warning', range: '>2–5%' },
-  { key: 'high', label: 'High', range: '>5–10%' },
-  { key: 'critical', label: 'Critical', range: '>10%' }
+  { key: 'critical', label: 'Critical', range: '>5%' }
 ];
 
 const STATE_ALIASES = {
@@ -118,8 +116,7 @@ export function getOfflinePercentage(row) {
 
 export function getServiceHealthSeverity(percent) {
   if (percent === null || percent === undefined || !Number.isFinite(Number(percent))) return 'noData';
-  if (percent > 10) return 'critical';
-  if (percent > 5) return 'high';
+  if (percent > 5) return 'critical';
   if (percent > 2) return 'warning';
   return 'good';
 }
@@ -132,9 +129,8 @@ export function getOfflineSeverityColorByPercentage(percent) {
 export function getOfflineSeverityLabelByPercentage(percent) {
   const severity = getServiceHealthSeverity(percent);
   if (severity === 'critical') return 'Critical';
-  if (severity === 'high') return 'High';
   if (severity === 'warning') return 'Warning';
-  if (severity === 'good') return 'Normal';
+  if (severity === 'good') return 'Good';
   return 'No data';
 }
 
